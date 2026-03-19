@@ -43,7 +43,6 @@ use PKP\plugins\interfaces\HasTaskScheduler;
 use PKP\plugins\PluginRegistry;
 use PKP\scheduledTask\PKPScheduler;
 use PKP\security\Role;
-use PKP\session\SessionManager;
 use PKP\userGroup\UserGroup;
 use SimpleXMLElement;
 
@@ -135,7 +134,6 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
         $operation = $request->getRequestedOp();
         $arguments = $request->getRequestedArgs();
         if ([$page, $operation] === ['pln', 'deposits'] || [$page, $operation, $arguments[0] ?? ''] === ['gateway', 'plugin', 'PLNGatewayPlugin']) {
-            SessionManager::disable();
             Hook::add('RestrictedSiteAccessPolicy::_getLoginExemptions', function (string $hookName, array $args): bool {
                 $exemptions = &$args[0];
                 array_push($exemptions, 'gateway', 'pln');
