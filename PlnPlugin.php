@@ -477,7 +477,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     {
         $userGroupIds = Repo::userGroup()
             ->getByRoleIds([Role::ROLE_ID_MANAGER], $contextId)
-            ->map(fn (UserGroup $userGroup) => $userGroup->getId())
+            ->map(fn (UserGroup $userGroup) => $userGroup->id)
             ->all();
 
         $managers = Repo::user()
