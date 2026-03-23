@@ -36,7 +36,7 @@ class Depositor extends ScheduledTask
     /**
      * Constructor.
      */
-    public function __construct(array $args)
+    public function __construct(private array $args = [])
     {
         parent::__construct($args);
         $this->plugin = PlnPlugin::loadPlugin();
