@@ -142,7 +142,7 @@ class PLNGatewayPlugin extends GatewayPlugin
             ->limit(static::PING_ARTICLE_COUNT)
             ->getMany()
             ->map(fn (Submission $submission) => $submission->getCurrentPublication())
-            ->toArray();
+            ->all();
 
         $templateMgr->assign([
             'termsAccepted' => $termsAccepted ? 'yes' : 'no',

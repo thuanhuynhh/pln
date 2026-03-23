@@ -228,7 +228,7 @@ class DAO extends EntityDAO
             ->leftJoin('pln_deposit_objects AS do', 'do.object_id', '=', 'i.issue_id')
             ->whereNull('do.object_id')
             ->pluck('i.issue_id')
-            ->toArray();
+            ->all();
 
         return $query
             ->filterByIssueIds($issueIds)

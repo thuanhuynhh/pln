@@ -104,7 +104,7 @@ class StatusGridHandler extends GridHandler
             ->limit($rangeInfo->getCount())
             ->offset(($rangeInfo->getPage() - 1) * $rangeInfo->getCount())
             ->getMany()
-            ->toArray();
+            ->all();
     }
 
     /**

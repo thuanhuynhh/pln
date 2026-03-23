@@ -233,7 +233,7 @@ class Repository
                             ->getCollector()
                             ->filterByContextIds([$journalId])
                     )
-                    ->toArray();
+                    ->all();
                 break;
             case PlnPlugin::DEPOSIT_TYPE_ISSUE:
                 $objects = $this->dao
@@ -241,7 +241,7 @@ class Repository
                         Repo::issue()
                             ->getCollector()
                             ->filterByContextIds([$journalId])
-                    )->toArray();
+                    )->all();
                 break;
             default:
                 throw new Exception("Invalid object type \"{$objectType}\"");

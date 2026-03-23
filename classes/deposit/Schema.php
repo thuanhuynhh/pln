@@ -81,7 +81,7 @@ class Schema extends \PKP\core\maps\Schema
     {
         $values = collect($props)
             ->map(fn (string $prop) => $item->getData($prop))
-            ->toArray();
+            ->all();
         $output = $this->schemaService->addMissingMultilingualValues($this->schema, $values, $this->context->getSupportedSubmissionLocales());
         ksort($output);
         return $this->withExtensions($output, $item);
