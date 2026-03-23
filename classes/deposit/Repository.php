@@ -47,13 +47,13 @@ class Repository
     }
 
     /** @copydoc DAO::get() */
-    public function get(int $id, int $contextId = null): ?Deposit
+    public function get(int $id, ?int $contextId = null): ?Deposit
     {
         return $this->dao->get($id, $contextId);
     }
 
     /** @copydoc DAO::exists() */
-    public function exists(int $id, int $contextId = null): bool
+    public function exists(int $id, ?int $contextId = null): bool
     {
         return $this->dao->exists($id, $contextId);
     }
