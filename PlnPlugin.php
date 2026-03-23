@@ -92,30 +92,26 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
             return false;
         }
 
-        $this->registerSchemas();
-
-        if ($this->getEnabled()) {
-            Hook::add('PluginRegistry::loadCategory', [$this, 'callbackLoadCategory']);
-            Hook::add('LoadHandler', [$this, 'callbackLoadHandler']);
-            Hook::add('NotificationManager::getNotificationContents', [$this, 'callbackNotificationContents']);
-            Hook::add('LoadComponentHandler', [$this, 'setupComponentHandler']);
-            $this->disableRestrictions();
+        if (!$this->getEnabled()) {
+            return true;
         }
 
+        $this->registerSchemas();
+        Hook::add('PluginRegistry::loadCategory', $this->onLoadCategory(...));
+        Hook::add('LoadHandler', $this->onLoadHandler(...));
+        Hook::add('NotificationManager::getNotificationContents', $this->onGetNotificationContents(...));
+        Hook::add('LoadComponentHandler', $this->onLoadComponentHandler(...));
+        $this->disableRestrictions();
         return true;
     }
 
     /**
      * Permit requests to the static pages grid handler
      */
-    public function setupComponentHandler(string $hookName, array $params): bool
+    public function onLoadComponentHandler(string $hookName, array $params): bool
     {
-        $component = $params[0];
-        if ($component !== 'plugins.generic.pln.controllers.grid.StatusGridHandler') {
-            return Hook::CONTINUE;
-        }
-
-        return Hook::ABORT;
+        [$component] = $params;
+        return $component !== 'plugins.generic.pln.controllers.grid.StatusGridHandler' ? Hook::CONTINUE : Hook::ABORT;
     }
 
     /**
@@ -126,7 +122,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     private function disableRestrictions(): void
     {
         $request = $this->getRequest();
-        // Avoid issues with the APIRouter
+        // If we're under an API request (APIRouter), a couple of method calls will fail, and this workaround is needed just on a place that uses the PageRouter
         if (!($request->getRouter() instanceof PageRouter)) {
             return;
         }
@@ -134,13 +130,21 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
         $page = $request->getRequestedPage();
         $operation = $request->getRequestedOp();
         $arguments = $request->getRequestedArgs();
-        if ([$page, $operation] === ['pln', 'deposits'] || [$page, $operation, $arguments[0] ?? ''] === ['gateway', 'plugin', 'PLNGatewayPlugin']) {
-            Hook::add('RestrictedSiteAccessPolicy::_getLoginExemptions', function (string $hookName, array $args): bool {
-                $exemptions = &$args[0];
-                array_push($exemptions, 'gateway', 'pln');
-                return Hook::CONTINUE;
-            });
+        if ([$page, $operation] !== ['pln', 'deposits'] && [$page, $operation, $arguments[0] ?? ''] !== ['gateway', 'plugin', 'PLNGatewayPlugin']) {
+            return;
         }
+
+        Hook::add('RestrictedSiteAccessPolicy::_getLoginExemptions', $this->onGetLoginExemptions(...));
+    }
+
+    /**
+     * Included an extra route which won't require the user to be logged in (to cover the case of non-public journals)
+     */
+    public function onGetLoginExemptions(string $hookName, array $args): bool
+    {
+        [&$exemptions] = $args;
+        array_push($exemptions, 'gateway', 'pln');
+        return Hook::CONTINUE;
     }
 
     /**
@@ -154,24 +158,18 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
         }
 
         $router = $request->getRouter();
+        $buildLinkAction = fn (string $verb, string $title) => new LinkAction(
+            $verb,
+            new AjaxModal(
+                $router->url(request: $request, op: 'manage', params: ['verb' => $verb, 'plugin' => $this->getName(), 'category' => 'generic']),
+                $this->getDisplayName()
+            ),
+            __($title)
+        );
         array_unshift(
             $actions,
-            new LinkAction(
-                'settings',
-                new AjaxModal(
-                    $router->url(request: $request, op: 'manage', params: ['verb' => 'settings', 'plugin' => $this->getName(), 'category' => 'generic']),
-                    $this->getDisplayName()
-                ),
-                __('manager.plugins.settings')
-            ),
-            new LinkAction(
-                'status',
-                new AjaxModal(
-                    $router->url(request: $request, op: 'manage', params: ['verb' => 'status', 'plugin' => $this->getName(), 'category' => 'generic']),
-                    $this->getDisplayName()
-                ),
-                __('common.status')
-            )
+            $buildLinkAction('settings', 'manager.plugins.settings'),
+            $buildLinkAction('status', 'common.status')
         );
         return $actions;
     }
@@ -251,15 +249,15 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     /**
      * Register as a gateway plugin.
      */
-    public function callbackLoadCategory(string $hookName, array $args): bool
+    public function onLoadCategory(string $hookName, array $args): bool
     {
-        $category = $args[0];
-        $plugins = &$args[1];
-        if ($category === 'gateways') {
-            $gatewayPlugin = new PLNGatewayPlugin($this->getName());
-            $plugins[$gatewayPlugin->getSeq()][$gatewayPlugin->getPluginPath()] = $gatewayPlugin;
+        [$category, &$plugins] = $args;
+        if ($category !== 'gateways') {
+            return Hook::CONTINUE;
         }
 
+        $gatewayPlugin = new PLNGatewayPlugin($this->getName());
+        $plugins[$gatewayPlugin->getSeq()][$gatewayPlugin->getPluginPath()] = $gatewayPlugin;
         return Hook::CONTINUE;
     }
 
@@ -278,11 +276,10 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     /**
      * Hook registry function to provide notification messages
      */
-    public function callbackNotificationContents(string $hookName, array $args): bool
+    public function onGetNotificationContents(string $hookName, array $args): bool
     {
-        /** @var Notification */
-        $notification = $args[0];
-        $message = &$args[1];
+        /** @var Notification $notification */
+        [$notification, &$message] = $args;
 
         $message = match ($notification->getType()) {
             static::NOTIFICATION_TERMS_UPDATED => __('plugins.generic.pln.notifications.terms_updated'),
@@ -297,17 +294,74 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     /**
      * Callback for the LoadHandler hook
      */
-    public function callbackLoadHandler(string $hookName, array $args): bool
+    public function onLoadHandler(string $hookName, array $args): bool
     {
-        $page = $args[0];
-        $op = $args[1] ?? '';
+        [$page, $op] = $args + [1 => ''];
         if ($page !== 'pln' || $op !== 'deposits') {
             return Hook::CONTINUE;
         }
-        define('HANDLER_CLASS', PageHandler::class);
-        $handlerFile = &$args[2];
-        $handlerFile = "{$this->getHandlerPath()}/PageHandler.php";
-        return Hook::CONTINUE;
+
+        $args[3] = new PageHandler();
+        return Hook::ABORT;
+    }
+
+    /**
+     * Manage settings
+     */
+    private function manageSettings(Request $request): JSONMessage
+    {
+        $context = $request->getContext();
+        $form = new SettingsForm($this, $context->getId());
+
+        if ($request->getUserVar('refresh')) {
+            $result = $this->getServiceDocument($context->getId());
+            if (intdiv((int) $result['status'], 100) !== 2) {
+                $message = $result['status']
+                    ? __('plugins.generic.pln.error.http.servicedocument', ['error' => $result['status'], 'message' => $result['error']])
+                    : __('plugins.generic.pln.error.network.servicedocument', ['error' => $result['error']]);
+                return new JSONMessage(false, $message);
+            }
+        } elseif ($request->getUserVar('save')) {
+            $form->readInputData();
+            if ($form->validate()) {
+                $form->execute();
+                $notificationManager = new NotificationManager();
+                $notificationManager->createTrivialNotification(
+                    $request->getUser()->getId(),
+                    Notification::NOTIFICATION_TYPE_SUCCESS,
+                    ['contents' => __('plugins.generic.pln.settings.saved')]
+                );
+                return new JSONMessage(true);
+            }
+        }
+
+        $form->initData();
+        return new JSONMessage(true, $form->fetch($request));
+    }
+
+    /**
+     * Manage status
+     */
+    private function manageStatus(Request $request): JSONMessage
+    {
+        $context = $request->getContext();
+        $form = new StatusForm($this, $context->getId());
+        if (!$request->getUserVar('reset')) {
+            return new JSONMessage(true, $form->fetch($request));
+        }
+
+        $depositIds = array_keys($request->getUserVar('reset'));
+        $repo = Repository::instance();
+        $deposits = $repo->getCollector()
+            ->filterByIds($depositIds)
+            ->filterByContextIds([$context->getId()])
+            ->getMany();
+        foreach ($deposits as $deposit) {
+            $deposit->setNewStatus();
+            $repo->edit($deposit);
+        }
+
+        return new JSONMessage(true, $form->fetch($request));
     }
 
     /**
@@ -316,60 +370,10 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     public function manage($args, $request): JSONMessage
     {
         $verb = $request->getUserVar('verb');
-        if ($verb === 'settings') {
-            $context = $request->getContext();
-            $form = new SettingsForm($this, $context->getId());
-
-            if ($request->getUserVar('refresh')) {
-                $result = $this->getServiceDocument($context->getId());
-                if (intdiv((int) $result['status'], 100) !== 2) {
-                    $message = $result['status']
-                        ? __('plugins.generic.pln.error.http.servicedocument', ['error' => $result['status'], 'message' => $result['error']])
-                        : __('plugins.generic.pln.error.network.servicedocument', ['error' => $result['error']]);
-                    return new JSONMessage(false, $message);
-                }
-            } elseif ($request->getUserVar('save')) {
-                $form->readInputData();
-                if ($form->validate()) {
-                    $form->execute();
-
-                    // Add notification: Changes saved
-                    $notificationContent = __('plugins.generic.pln.settings.saved');
-                    $currentUser = $request->getUser();
-                    $notificationMgr = new NotificationManager();
-                    $notificationMgr->createTrivialNotification($currentUser->getId(), PKPNotification::NOTIFICATION_TYPE_SUCCESS, ['contents' => $notificationContent]);
-
-                    return new JSONMessage(true);
-                }
-            }
-
-            $form->initData();
-
-            return new JSONMessage(true, $form->fetch($request));
-        }
-
-        if ($verb === 'status') {
-            $context = $request->getContext();
-            $form = new StatusForm($this, $context->getId());
-
-            if ($request->getUserVar('reset')) {
-                $depositIds = array_keys($request->getUserVar('reset'));
-                $repo = Repository::instance();
-                $deposits = $repo
-                    ->getCollector()
-                    ->filterByIds($depositIds)
-                    ->filterByContextIds([$context->getId()])
-                    ->getMany();
-                foreach ($deposits as $deposit) {
-                    $deposit->setNewStatus();
-                    $repo->edit($deposit);
-                }
-            }
-
-            return new JSONMessage(true, $form->fetch($request));
-        }
-
-        throw new Exception('Unexpected verb');
+        return match ($verb) {
+            'settings' => $this->manageSettings($request),
+            'status' => $this->manageStatus($request)
+        };
     }
 
     /**
@@ -377,6 +381,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
      */
     public function termsAgreed(int $journalId): bool
     {
+        //HASH of all text to detect changes, for existing setup hash automatically
         $terms = $this->getSetting($journalId, 'terms_of_use');
         $termsAgreed = $this->getSetting($journalId, 'terms_of_use_agreement');
 
@@ -418,51 +423,42 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
 
         // stop here if we didn't get an OK (2XX status)
         if (intdiv((int) $result['status'], 100) !== 2) {
-            if ($result['status']) {
-                error_log(__('plugins.generic.pln.error.http.servicedocument', ['error' => $result['status'], 'message' => $result['error']]));
-            } else {
-                error_log(__('plugins.generic.pln.error.network.servicedocument', ['error' => $result['error']]));
-            }
+            $message = $result['status']
+                ? __('plugins.generic.pln.error.http.servicedocument', ['error' => $result['status'], 'message' => $result['error']])
+                : __('plugins.generic.pln.error.network.servicedocument', ['error' => $result['error']]);
+            error_log($message);
             return $result;
         }
 
         $serviceDocument = new DOMDocument('1.0', 'utf-8');
         $serviceDocument->preserveWhiteSpace = false;
         $serviceDocument->loadXML($result['result']);
-
+        $findFirst = fn (string $tagName) => $serviceDocument->getElementsByTagName($tagName)->item(0);
         // update the max upload size
-        $element = $serviceDocument->getElementsByTagName('maxUploadSize')->item(0);
-        $this->updateSetting($contextId, 'max_upload_size', $element->nodeValue);
-
+        $this->updateSetting($contextId, 'max_upload_size', (int) $findFirst('maxUploadSize')->textContent);
         // update the checksum type
-        $element = $serviceDocument->getElementsByTagName('uploadChecksumType')->item(0);
-        $this->updateSetting($contextId, 'checksum_type', $element->nodeValue);
-
+        $this->updateSetting($contextId, 'checksum_type', $findFirst('uploadChecksumType')->textContent);
         // update the network status
-        /** @var DOMElement */
-        $element = $serviceDocument->getElementsByTagName('pln_accepting')->item(0);
-        $this->updateSetting($contextId, 'pln_accepting', (($element->getAttribute('is_accepting') == 'Yes') ? true : false));
-        $this->updateSetting($contextId, 'pln_accepting_message', $element->nodeValue);
-
+        $acceptingNode = $findFirst('pln_accepting');
+        $this->updateSetting($contextId, 'pln_accepting', mb_strtolower($acceptingNode->getAttribute('is_accepting')) === 'yes');
+        $this->updateSetting($contextId, 'pln_accepting_message', $acceptingNode->textContent);
         // update the terms of use
-        $termElements = $serviceDocument->getElementsByTagName('terms_of_use')->item(0)->childNodes;
-        $newTerms = [];
-        foreach ($termElements as $termElement) {
-            if ($termElement instanceof DOMElement) {
-                $newTerms[$termElement->tagName] = ['updated' => $termElement->getAttribute('updated'), 'term' => $termElement->nodeValue];
-            }
+        $termNodes = $findFirst('terms_of_use')->getElementsByTagName('*');
+        $terms = [];
+        /** @var DOMElement $termNode */
+        foreach ($termNodes as $termNode) {
+            $terms[$termNode->tagName] = ['updated' => $termNode->getAttribute('updated'), 'term' => $termNode->textContent];
         }
 
-        $oldTerms = $this->getSetting($contextId, 'terms_of_use');
-
-        // if the new terms don't match the exiting ones we need to reset agreement
-        if ($newTerms != $oldTerms) {
+        $currentTerms = $this->getSetting($contextId, 'terms_of_use');
+        // if the new terms don't match the exiting ones the agreement must be reset
+        if ($terms != $currentTerms) {
             $termAgreements = [];
-            foreach ($newTerms as $termName => $termText) {
-                $termAgreements[$termName] = null;
+            foreach (array_keys($terms) as $term) {
+                $termAgreements[$term] = null;
             }
 
-            $this->updateSetting($contextId, 'terms_of_use', $newTerms, 'object');
+            $this->updateSetting($contextId, 'terms_of_use', $terms, 'object');
             $this->updateSetting($contextId, 'terms_of_use_agreement', $termAgreements, 'object');
             $this->createJournalManagerNotification($contextId, static::NOTIFICATION_TERMS_UPDATED);
         }
@@ -471,7 +467,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     }
 
     /**
-     * Create notification for all journal managers
+     * Send a notification to the journal managers
      */
     public function createJournalManagerNotification(int $contextId, int $notificationType): void
     {
@@ -479,13 +475,11 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
             ->getByRoleIds([Role::ROLE_ID_MANAGER], $contextId)
             ->map(fn (UserGroup $userGroup) => $userGroup->id)
             ->all();
-
         $managers = Repo::user()
             ->getCollector()
             ->filterByRoleIds($userGroupIds)
             ->getMany();
         $notificationManager = new NotificationManager();
-        // TODO: This is going to notify all managers, perhaps only the technical contact should be notified?
         foreach ($managers as $manager) {
             $notificationManager->createTrivialNotification($manager->getId(), $notificationType);
         }
@@ -584,13 +578,15 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     public function setEnabled($enabled): void
     {
         parent::setEnabled($enabled);
-        if ($enabled) {
-            (new NotificationManager())->createTrivialNotification(
-                Application::get()->getRequest()->getUser()->getId(),
-                PKPNotification::NOTIFICATION_TYPE_SUCCESS,
-                ['contents' => __('plugins.generic.pln.onPluginEnabledNotification')]
-            );
+        if (!$enabled) {
+            return;
         }
+
+        (new NotificationManager())->createTrivialNotification(
+            Application::get()->getRequest()->getUser()->getId(),
+            Notification::NOTIFICATION_TYPE_SUCCESS,
+            ['contents' => __('plugins.generic.pln.onPluginEnabledNotification')]
+        );
     }
 
     /**
