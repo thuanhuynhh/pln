@@ -399,7 +399,7 @@ class DepositPackage
         $plugin = PlnPlugin::loadPlugin();
 
         // post the atom document
-        $baseUrl = $plugin->getSetting($journalId, 'pln_network');
+        $baseUrl = PlnPlugin::getNetworkUrl();
         $atomPath = $this->getAtomDocumentPath();
 
         // Reset deposit if the package doesn't exist
@@ -551,7 +551,7 @@ class DepositPackage
         $journalId = $this->deposit->getJournalId();
         $plugin = PlnPlugin::loadPlugin();
 
-        $network = $plugin->getSetting($journalId, 'pln_network');
+        $network = PlnPlugin::getNetworkUrl();
         $journalUID = $plugin->getSetting($journalId, 'journal_uuid');
         $url = "{$network}/api/sword/2.0/cont-iri/{$journalUID}/{$this->deposit->getUUID()}/state";
 

@@ -16,6 +16,7 @@ namespace APP\plugins\generic\pln;
 
 use APP\core\Application;
 use APP\core\PageRouter;
+use APP\core\Request;
 use APP\facades\Repo;
 use APP\notification\Notification;
 use APP\notification\NotificationManager;
@@ -232,26 +233,19 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
      */
     public function getSetting($journalId, $settingName): mixed
     {
-        // if there isn't a journal_uuid, make one
-        switch ($settingName) {
-            case 'journal_uuid':
-                $uuid = parent::getSetting($journalId, $settingName);
-                if (!is_null($uuid) && $uuid != '') {
-                    return $uuid;
-                }
-                $this->updateSetting($journalId, $settingName, $this->newUUID());
-                break;
-            case 'object_type':
-                $type = parent::getSetting($journalId, $settingName);
-                if (! is_null($type)) {
-                    return $type;
-                }
-                $this->updateSetting($journalId, $settingName, static::DEPOSIT_TYPE_ISSUE);
-                break;
-            case 'pln_network':
-                return Config::getVar('lockss', 'pln_url', static::DEFAULT_NETWORK_URL);
-        }
-        return parent::getSetting($journalId, $settingName);
+        $value = parent::getSetting($journalId, $settingName);
+        $getSetting = function (callable $getValue) use ($journalId, $settingName, $value) {
+            if (!strlen((string) $value)) {
+                $this->updateSetting($journalId, $settingName, $value = $getValue());
+            }
+
+            return $value;
+        };
+        return match ($settingName) {
+            'journal_uuid' => $getSetting(fn () => $this->newUUID()),
+            'object_type' => $getSetting(fn () => static::DEPOSIT_TYPE_ISSUE),
+            default => $value
+        };
     }
 
     /**
@@ -406,17 +400,15 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
         $request = $application->getRequest();
         $contextDao = Application::getContextDAO();
         $context = $contextDao->getById($contextId);
-
-        // get the journal and determine the language.
+        // get the journal and determine the language
         $locale = $context->getPrimaryLocale();
         $language = strtolower(str_replace('_', '-', $locale));
-        $network = $this->getSetting($context->getId(), 'pln_network');
+        $networkUrl = static::getNetworkUrl();
         $application = Application::get();
         $dispatcher = $application->getDispatcher();
-
         // retrieve the service document
         $result = $this->curlGet(
-            "{$network}/api/sword/2.0/sd-iri",
+            "{$networkUrl}/api/sword/2.0/sd-iri",
             [
                 'On-Behalf-Of' => $this->getSetting($contextId, 'journal_uuid'),
                 'Journal-URL' => $dispatcher->url($request, Application::ROUTE_PAGE, $context->getPath()),
@@ -616,6 +608,14 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
                 ['contents' => __('plugins.generic.pln.onPluginEnabledNotification')]
             );
         }
+    }
+
+    /**
+     * Retrieves the PKP Preservation Network URL
+     */
+    public static function getNetworkUrl(): string
+    {
+        return Config::getVar('lockss', 'pln_url', static::DEFAULT_NETWORK_URL);
     }
 
     /**
