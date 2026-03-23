@@ -3,16 +3,13 @@
     "description": "A plugin to enable OJS to preserve content in the PKP Preservation Network",
     "license": "GPL-3.0-only",
     "require": {
-        "php": ">=8.0",
-        "whikloj/bagittools": "^4.2"
+        "php": "^8.2",
+        "whikloj/bagittools": "^6.0"
     },
     "config": {
         "classmap-authoritative": true,
         "optimize-autoloader": true,
         "prepend-autoloader": false,
-        "sort-packages": true,
-        "platform": {
-            "php": "8.0.2"
-        }
+        "sort-packages": true
     }
 }
