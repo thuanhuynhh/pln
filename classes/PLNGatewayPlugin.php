@@ -21,7 +21,6 @@ use APP\submission\Submission;
 use APP\template\TemplateManager;
 use PKP\core\ArrayItemIterator;
 use PKP\plugins\GatewayPlugin;
-use PKP\plugins\PluginRegistry;
 use PKP\site\VersionCheck;
 
 class PLNGatewayPlugin extends GatewayPlugin
@@ -69,22 +68,11 @@ class PLNGatewayPlugin extends GatewayPlugin
     }
 
     /**
-     * Get the plugin
-     */
-    public function getPlugin(): PlnPlugin
-    {
-        /** @var PlnPlugin */
-        $plugin = PluginRegistry::getPlugin('generic', $this->parentPluginName);
-        return $plugin;
-    }
-
-    /**
      * Override the builtin to get the correct plugin path.
      */
     public function getPluginPath(): string
     {
-        $plugin = $this->getPlugin();
-        return $plugin->getPluginPath();
+        return PlnPlugin::loadPlugin()->getPluginPath();
     }
 
     /**
@@ -92,8 +80,7 @@ class PLNGatewayPlugin extends GatewayPlugin
      */
     public function getTemplatePath($inCore = false): string
     {
-        $plugin = $this->getPlugin();
-        return $plugin->getTemplatePath($inCore);
+        return PlnPlugin::loadPlugin()->getTemplatePath($inCore);
     }
 
     /**
@@ -101,7 +88,7 @@ class PLNGatewayPlugin extends GatewayPlugin
      */
     public function getEnabled()
     {
-        return $this->getPlugin()->getEnabled(); // Should always be true anyway if this is loaded
+        return PlnPlugin::loadPlugin()->getEnabled();
     }
 
     /**
@@ -109,7 +96,7 @@ class PLNGatewayPlugin extends GatewayPlugin
      */
     public function fetch($args, $request): bool
     {
-        $plugin = $this->getPlugin();
+        $plugin = PlnPlugin::loadPlugin();
         $templateMgr = TemplateManager::getManager($request);
         $journal = $request->getJournal();
 
