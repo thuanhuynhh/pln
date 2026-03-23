@@ -412,7 +412,7 @@ class DepositPackage
         $journalUuid = $plugin->getSetting($journalId, 'journal_uuid');
         $baseContUrl = "{$baseUrl}/api/sword/2.0/cont-iri/api/sword/2.0/cont-iri/{$journalUuid}/{$this->deposit->getUUID()}";
 
-        $result = $plugin->curlGet("{$baseContUrl}/state");
+        $result = $plugin->httpGet("{$baseContUrl}/state");
         $status = intdiv((int) $result['status'], 100);
         // Abort if status not 2XX or 4XX
         if ($status !== 2 && $status !== 4) {
@@ -450,12 +450,8 @@ class DepositPackage
             ),
             ScheduledTaskHelper::SCHEDULED_TASK_MESSAGE_TYPE_NOTICE
         );
-
-        $result = $isNewDeposit
-            ? $plugin->curlPostFile($url, $atomPath)
-            : $plugin->curlPutFile($url, $atomPath);
-
-        // If we get a 2XX, set the status as transferred
+        $result = $plugin->httpUpload($url, $atomPath, !$isNewDeposit);
+        // If we get a 2XX, set the status to transferred
         if (intdiv((int) $result['status'], 100) === 2) {
             $this->task->addExecutionLogEntry(
                 __(
@@ -556,7 +552,7 @@ class DepositPackage
         $url = "{$network}/api/sword/2.0/cont-iri/{$journalUID}/{$this->deposit->getUUID()}/state";
 
         // retrieve the content document
-        $result = $plugin->curlGet($url);
+        $result = $plugin->httpGet($url);
         if (intdiv((int) $result['status'], 100) !== 2) {
             if ($result['status']) {
                 error_log(__('plugins.generic.pln.error.http.swordstatement', ['error' => $result['status'], 'message' => $result['error']]));

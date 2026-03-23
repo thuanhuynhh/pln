@@ -407,7 +407,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
         $application = Application::get();
         $dispatcher = $application->getDispatcher();
         // retrieve the service document
-        $result = $this->curlGet(
+        $result = $this->httpGet(
             "{$networkUrl}/api/sword/2.0/sd-iri",
             [
                 'On-Behalf-Of' => $this->getSetting($contextId, 'journal_uuid'),
@@ -416,7 +416,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
             ]
         );
 
-        // stop here if we didn't get an OK
+        // stop here if we didn't get an OK (2XX status)
         if (intdiv((int) $result['status'], 100) !== 2) {
             if ($result['status']) {
                 error_log(__('plugins.generic.pln.error.http.servicedocument', ['error' => $result['status'], 'message' => $result['error']]));
@@ -504,12 +504,10 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
      *
      * @return array{status: ?int, result: ?string, error: ?string}
      */
-    public function curlGet(string $url, array $headers = []): array
+    public function httpGet(string $url, array $headers = []): array
     {
         $httpClient = Application::get()->getHttpClient();
-        $response = null;
-        $body = null;
-        $error = null;
+        $response = $body = $error = null;
         try {
             $response = $httpClient->request('GET', $url, ['headers' => $headers]);
             $body = (string) $response->getBody();
@@ -521,32 +519,18 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
                 try {
                     $error = (new SimpleXMLElement($body))->summary ?: $error;
                 } catch (Exception $e) {
+                    error_log("Failed to parse PKP PN error:\n$body");
                 }
             }
         } catch (Exception $e) {
             $error = $e->getMessage();
         }
+
         return [
-            'status' => $response ? $response->getStatusCode() : null,
+            'status' => $response?->getStatusCode(),
             'result' => $body,
             'error' => $error
         ];
-    }
-
-    /**
-     * Post a file to a resource
-     */
-    public function curlPostFile(string $url, string $filename): array
-    {
-        return $this->sendFile('POST', $url, $filename);
-    }
-
-    /**
-     * Put a file to a resource
-     */
-    public function curlPutFile(string $url, string $filename): array
-    {
-        return $this->sendFile('PUT', $url, $filename);
     }
 
     /**
@@ -560,14 +544,12 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     /**
      * Transfer a file to a resource.
      */
-    protected function sendFile(string $method, string $url, string $filename): array
+    public function httpUpload(string $url, string $filename, bool $usePut = false): array
     {
         $httpClient = Application::get()->getHttpClient();
-        $response = null;
-        $body = null;
-        $error = null;
+        $response = $body = $error = null;
         try {
-            $response = $httpClient->request($method, $url, [
+            $response = $httpClient->request($usePut ? 'PUT' : 'POST', $url, [
                 'headers' => [
                     'Content-Type' => mime_content_type($filename),
                     'Content-Length' => filesize($filename),
@@ -583,13 +565,14 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
                 try {
                     $error = (new SimpleXMLElement($body))->summary ?: $error;
                 } catch (Exception $e) {
+                    error_log("Failed to parse PKP PN error:\n$body");
                 }
             }
         } catch (Exception $e) {
             $error = $e->getMessage();
         }
         return [
-            'status' => $response ? $response->getStatusCode() : null,
+            'status' => $response?->getStatusCode(),
             'result' => $body,
             'error' => $error
         ];
