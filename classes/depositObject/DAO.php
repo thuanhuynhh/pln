@@ -105,7 +105,6 @@ class DAO extends EntityDAO
         $rows = $query
             ->getQueryBuilder()
             ->get();
-
         return LazyCollection::make(function () use ($rows) {
             foreach ($rows as $row) {
                 yield $row->deposit_id => $this->fromRow($row);
@@ -119,7 +118,6 @@ class DAO extends EntityDAO
     public function fromRow(object $row): DepositObject
     {
         $depositObject = parent::fromRow($row);
-
         return $depositObject;
     }
 
@@ -229,7 +227,6 @@ class DAO extends EntityDAO
             ->whereNull('do.object_id')
             ->pluck('i.issue_id')
             ->all();
-
         return $query
             ->filterByIssueIds($issueIds)
             ->getMany();

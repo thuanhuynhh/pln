@@ -148,9 +148,11 @@ class Collector implements CollectorInterface
         if (!in_array($sorter, [static::ORDER_BY_ERROR])) {
             throw new InvalidArgumentException("Invalid order by: {$sorter}");
         }
+
         if (!in_array($direction, [static::ORDER_DIR_ASC, static::ORDER_DIR_DESC])) {
             throw new InvalidArgumentException("Invalid order direction: {$direction}");
         }
+
         $this->orderBy = $sorter;
         $this->orderDirection = $direction;
         return $this;
@@ -172,23 +174,23 @@ class Collector implements CollectorInterface
             ->when(
                 $this->status !== null,
                 fn (Builder $q) =>
-                match ($this->status) {
-                    static::STATUS_NEW => $q->where('d.status', '=', PlnPlugin::DEPOSIT_STATUS_NEW),
-                    static::STATUS_READY_TO_TRANSFER => $q
-                        ->whereRaw('d.status & ? <> 0', [PlnPlugin::DEPOSIT_STATUS_PACKAGED])
-                        ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_TRANSFERRED]),
-                    static::STATUS_READY_TO_PACKAGE => $q
-                        ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_PACKAGED]),
-                    static::STATUS_READY_FOR_UPDATE => $q->where(
-                        fn (Builder $q) => $q
-                            ->whereNull('d.status')
-                            ->orWhere(
-                                fn (Builder $q) => $q
-                                    ->whereRaw('d.status & ? <> 0', [PlnPlugin::DEPOSIT_STATUS_TRANSFERRED])
-                                    ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_LOCKSS_AGREEMENT])
-                            )
-                    ),
-                }
+                    match ($this->status) {
+                        static::STATUS_NEW => $q->where('d.status', '=', PlnPlugin::DEPOSIT_STATUS_NEW),
+                        static::STATUS_READY_TO_TRANSFER => $q
+                            ->whereRaw('d.status & ? <> 0', [PlnPlugin::DEPOSIT_STATUS_PACKAGED])
+                            ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_TRANSFERRED]),
+                        static::STATUS_READY_TO_PACKAGE => $q
+                            ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_PACKAGED]),
+                        static::STATUS_READY_FOR_UPDATE => $q->where(
+                            fn (Builder $q) => $q
+                                ->whereNull('d.status')
+                                ->orWhere(
+                                    fn (Builder $q) => $q
+                                        ->whereRaw('d.status & ? <> 0', [PlnPlugin::DEPOSIT_STATUS_TRANSFERRED])
+                                        ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_LOCKSS_AGREEMENT])
+                                )
+                        ),
+                    }
             )
             ->when(
                 $orderBy,

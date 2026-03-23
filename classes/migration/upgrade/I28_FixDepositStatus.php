@@ -30,6 +30,7 @@ class I28_FixDepositStatus extends Migration
         if (Schema::hasColumn('pln_deposits', 'date_preserved')) {
             return;
         }
+
         Schema::table('pln_deposits', function (Blueprint $table) {
             $table->datetime('date_preserved')->nullable();
             $table->string('staging_state')->nullable();

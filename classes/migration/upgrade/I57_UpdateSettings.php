@@ -49,7 +49,6 @@ class I57_UpdateSettings extends Migration
                     $value = $newValue;
                 }
             }
-
             // The "terms" are not that important (the user might accept them again), so if we're still unable to decode it, a cleanup is acceptable
             if (!is_array($value)) {
                 $value = [];

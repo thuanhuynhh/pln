@@ -125,10 +125,8 @@ class Collector implements CollectorInterface
             ->when($this->ids !== null, fn (Builder $query) => $query->whereIn('do.deposit_object_id', $this->ids))
             ->when($this->depositIds !== null, fn (Builder $query) => $query->whereIn('do.deposit_id', $this->depositIds))
             ->when($this->contextIds !== null, fn (Builder $query) => $query->whereIn('do.journal_id', $this->contextIds));
-
         // Add app-specific query statements
         Hook::call('PreservationNetwork::DepositObject::Collector', [&$q, $this]);
-
         return $q;
     }
 }

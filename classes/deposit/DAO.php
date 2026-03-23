@@ -118,7 +118,6 @@ class DAO extends EntityDAO
     public function fromRow(object $row): Deposit
     {
         $deposit = parent::fromRow($row);
-
         return $deposit;
     }
 

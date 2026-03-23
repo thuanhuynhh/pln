@@ -46,6 +46,7 @@ class DepositObject extends DataObject
         if (!($content instanceof Issue) && !($content instanceof Submission)) {
             throw new Exception('Unknown content type');
         }
+
         $this->setObjectId($content->getId());
         $this->setObjectType($content instanceof Submission ? PlnPlugin::DEPOSIT_TYPE_SUBMISSION : PlnPlugin::DEPOSIT_TYPE_ISSUE);
     }

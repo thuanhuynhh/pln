@@ -43,6 +43,7 @@ class Repository
         if (!empty($params)) {
             $object->setAllData($params);
         }
+
         return $object;
     }
 
@@ -71,7 +72,9 @@ class Repository
      */
     public function getSchemaMap(): Schema
     {
-        return app('maps')->withExtensions($this->schemaMap);
+        /** @var Schema */
+        $schemaMap = app('maps')->withExtensions($this->schemaMap);
+        return $schemaMap;
     }
 
     /**
@@ -92,12 +95,10 @@ class Repository
     {
         /** @var PKPSchemaService */
         $schemaService = Services::get('schema');
-
         $validator = ValidatorFactory::make(
             $props,
             $schemaService->getValidationRules(Schema::SCHEMA_NAME, $allowedLocales)
         );
-
         // Check required fields
         ValidatorFactory::required(
             $validator,
@@ -107,17 +108,14 @@ class Repository
             $allowedLocales,
             $primaryLocale
         );
-
         // Check for input from disallowed locales
         ValidatorFactory::allowedLocales($validator, $schemaService->getMultilingualProps(Schema::SCHEMA_NAME), $allowedLocales);
-
         $errors = [];
         if ($validator->fails()) {
             $errors = $schemaService->formatValidationErrors($validator->errors());
         }
 
         Hook::call('PreservationNetwork::Deposit::validate', [$errors, $deposit, $props, $allowedLocales, $primaryLocale]);
-
         return $errors;
     }
 
@@ -131,11 +129,10 @@ class Repository
         if (!$deposit->getDateCreated()) {
             $deposit->setDateCreated(Core::getCurrentDate());
         }
+
         $depositId = $this->dao->insert($deposit);
         $deposit = $this->get($depositId);
-
         Hook::call('PreservationNetwork::Deposit::add', [$deposit]);
-
         return $deposit->getId();
     }
 
@@ -147,11 +144,8 @@ class Repository
     public function edit(Deposit $deposit, array $params = []): void
     {
         $newDeposit = $this->newDataObject(array_merge($deposit->_data, $params));
-
         Hook::call('PreservationNetwork::Deposit::edit', [$newDeposit, $deposit, $params]);
-
         $this->dao->update($newDeposit);
-
         $this->get($newDeposit->getId());
     }
 
@@ -163,7 +157,6 @@ class Repository
     public function delete(Deposit $deposit): bool
     {
         Hook::call('PreservationNetwork::Deposit::delete::before', [$deposit]);
-
         $fileManager = new ContextFileManager($deposit->getJournalId());
         $path = $fileManager->getBasePath() . PlnPlugin::DEPOSIT_FOLDER . "/{$deposit->getUUID()}";
         if (!$fileManager->rmtree($path)) {
@@ -171,9 +164,7 @@ class Repository
         }
 
         $this->dao->delete($deposit);
-
         Hook::call('PreservationNetwork::Deposit::delete', [$deposit]);
-
         return true;
     }
 
@@ -251,6 +242,7 @@ class Repository
                 $failedIds[] = $deposit->getId();
             }
         }
+
         return $failedIds;
     }
 }

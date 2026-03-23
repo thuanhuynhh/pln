@@ -44,6 +44,7 @@ class Repository
         if (!empty($params)) {
             $object->setAllData($params);
         }
+
         return $object;
     }
 
@@ -72,7 +73,9 @@ class Repository
      */
     public function getSchemaMap(): Schema
     {
-        return app('maps')->withExtensions($this->schemaMap);
+        /** @var Schema */
+        $schemaMap = app('maps')->withExtensions($this->schemaMap);
+        return $schemaMap;
     }
 
     /**
@@ -93,12 +96,10 @@ class Repository
     {
         /** @var PKPSchemaService */
         $schemaService = Services::get('schema');
-
         $validator = ValidatorFactory::make(
             $props,
             $schemaService->getValidationRules(Schema::SCHEMA_NAME, $allowedLocales)
         );
-
         // Check required fields
         ValidatorFactory::required(
             $validator,
@@ -108,17 +109,14 @@ class Repository
             $allowedLocales,
             $primaryLocale
         );
-
         // Check for input from disallowed locales
         ValidatorFactory::allowedLocales($validator, $schemaService->getMultilingualProps(Schema::SCHEMA_NAME), $allowedLocales);
-
         $errors = [];
         if ($validator->fails()) {
             $errors = $schemaService->formatValidationErrors($validator->errors());
         }
 
         Hook::call('PreservationNetwork::DepositObject::validate', [$errors, $depositObject, $props, $allowedLocales, $primaryLocale]);
-
         return $errors;
     }
 
@@ -132,11 +130,10 @@ class Repository
         if (!$depositObject->getDateCreated()) {
             $depositObject->setDateCreated(Core::getCurrentDate());
         }
+
         $depositObjectId = $this->dao->insert($depositObject);
         $depositObject = $this->get($depositObjectId);
-
         Hook::call('PreservationNetwork::DepositObject::add', [$depositObject]);
-
         return $depositObject->getId();
     }
 
@@ -148,11 +145,8 @@ class Repository
     public function edit(DepositObject $depositObject, array $params = []): void
     {
         $newDeposit = $this->newDataObject(array_merge($depositObject->_data, $params));
-
         Hook::call('PreservationNetwork::DepositObject::edit', [$newDeposit, $depositObject, $params]);
-
         $this->dao->update($newDeposit);
-
         $this->get($newDeposit->getId());
     }
 
@@ -164,9 +158,7 @@ class Repository
     public function delete(DepositObject $depositObject): void
     {
         Hook::call('PreservationNetwork::DepositObject::delete::before', [$depositObject]);
-
         $this->dao->delete($depositObject);
-
         Hook::call('PreservationNetwork::DepositObject::delete', [$depositObject]);
     }
 
@@ -197,6 +189,7 @@ class Repository
                     $deposit->setNewStatus();
                     DepositRepository::instance()->edit($deposit);
                 }
+
                 break;
             case PlnPlugin::DEPOSIT_TYPE_ISSUE:
                 $outdatedIssues = $this->dao->getOutdatedIssues(
@@ -210,6 +203,7 @@ class Repository
                     $deposit->setNewStatus();
                     DepositRepository::instance()->edit($deposit);
                 }
+
                 break;
             default:
                 throw new Exception("Invalid object type \"{$objectType}\"");
@@ -246,7 +240,6 @@ class Repository
             default:
                 throw new Exception("Invalid object type \"{$objectType}\"");
         }
-
         $depositObjects = [];
         foreach ($objects as $object) {
             $depositObject = $this->newDataObject();

@@ -28,10 +28,7 @@ class Schema extends \PKP\core\maps\Schema
     public static function register(): void
     {
         $path = dirname(__DIR__, 2) . '/schemas/depositObject.json';
-        Hook::add(
-            'Schema::get::' . static::SCHEMA_NAME,
-            fn (string $hookName, array $args) => $args[0] = json_decode(file_get_contents($path))
-        );
+        Hook::add('Schema::get::' . static::SCHEMA_NAME, fn (string $hookName, array $args) => $args[0] = json_decode(file_get_contents($path)));
     }
 
     /**

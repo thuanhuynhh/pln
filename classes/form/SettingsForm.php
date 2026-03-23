@@ -46,6 +46,7 @@ class SettingsForm extends Form
                     : __('plugins.generic.pln.error.network.servicedocument', ['error' => $result['error']]);
             }
         }
+
         $this->setData('terms_of_use', $this->plugin->getSetting($contextId, 'terms_of_use'));
         $this->setData('terms_of_use_agreement', $this->plugin->getSetting($contextId, 'terms_of_use_agreement'));
     }
@@ -56,7 +57,6 @@ class SettingsForm extends Form
     public function readInputData(): void
     {
         $this->readUserVars(['terms_agreed']);
-
         $termsAgreed = $this->getData('terms_of_use_agreement');
         if (!$this->getData('terms_agreed')) {
             return;
@@ -65,6 +65,7 @@ class SettingsForm extends Form
         foreach (array_keys($this->getData('terms_agreed')) as $termAgreed) {
             $termsAgreed[$termAgreed] = gmdate('c');
         }
+
         $this->setData('terms_of_use_agreement', $termsAgreed);
     }
 
@@ -76,7 +77,6 @@ class SettingsForm extends Form
     private function checkPrerequisites(): array
     {
         $messages = [];
-
         if (!$this->plugin->hasZipArchive()) {
             $messages[] = __('plugins.generic.pln.notifications.zip_missing');
         }
@@ -118,7 +118,6 @@ class SettingsForm extends Form
     {
         parent::execute(...$functionArgs);
         $this->plugin->updateSetting($this->contextId, 'terms_of_use_agreement', $this->getData('terms_of_use_agreement'), 'object');
-
         /** @var PluginSettingsDAO */
         $pluginSettingsDao = DAORegistry::getDAO('PluginSettingsDAO');
         $pluginSettingsDao->installSettings($this->contextId, $this->plugin->getName(), $this->plugin->getContextSpecificPluginSettingsFile());

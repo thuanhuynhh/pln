@@ -99,11 +99,9 @@ class PLNGatewayPlugin extends GatewayPlugin
         $plugin = PlnPlugin::loadPlugin();
         $templateMgr = TemplateManager::getManager($request);
         $journal = $request->getJournal();
-
         $pluginVersionFile = $this->getPluginPath() . '/version.xml';
         $pluginVersion = VersionCheck::parseVersionXml($pluginVersionFile);
         $templateMgr->assign('pluginVersion', $pluginVersion);
-
         $terms = [];
         $termsAccepted = $plugin->termsAgreed($journal->getId());
         if ($termsAccepted) {
@@ -130,7 +128,6 @@ class PLNGatewayPlugin extends GatewayPlugin
             ->getMany()
             ->map(fn (Submission $submission) => $submission->getCurrentPublication())
             ->all();
-
         $templateMgr->assign([
             'termsAccepted' => $termsAccepted ? 'yes' : 'no',
             'phpVersion' => PHP_VERSION,

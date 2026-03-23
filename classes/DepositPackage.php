@@ -99,7 +99,6 @@ class DepositPackage
         mb_substitute_character(0xFFFD);
         $filtered = mb_convert_encoding((string) $content, 'UTF-8', 'UTF-8');
         mb_substitute_character($original);
-
         // put the filtered content in a CDATA, as it may contain markup that isn't valid XML.
         $node = $dom->createCDATASection($filtered);
         $element = $dom->createElementNS($namespace, $elementName);
@@ -118,11 +117,9 @@ class DepositPackage
         /** @var Journal */
         $journal = $journalDao->getById($this->deposit->getJournalId());
         $fileManager = new ContextFileManager($this->deposit->getJournalId());
-
         // set up folder and file locations
         $atomFile = $this->getAtomDocumentPath();
         $packageFile = $this->getPackageFilePath();
-
         // make sure our bag is present
         if (!$fileManager->fileExists($packageFile)) {
             $this->logMessage(__('plugins.generic.pln.error.depositor.missingpackage', ['file' => $packageFile]));
@@ -133,28 +130,22 @@ class DepositPackage
         $entry = $atom->createElementNS('http://www.w3.org/2005/Atom', 'entry');
         $entry->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:dcterms', 'http://purl.org/dc/terms/');
         $entry->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:pkp', static::PKP_NAMESPACE);
-
         $entry->appendChild($this->createElement($atom, 'email', $journal->getData('contactEmail')));
         $entry->appendChild($this->createElement($atom, 'title', $journal->getLocalizedName()));
-
         $request = Application::get()->getRequest();
         $dispatcher = Application::get()->getDispatcher();
-
         $entry->appendChild($this->createElement($atom, 'pkp:journal_url', $dispatcher->url($request, Application::ROUTE_PAGE, $journal->getPath()), static::PKP_NAMESPACE));
         $entry->appendChild($this->createElement($atom, 'pkp:publisherName', $journal->getData('publisherInstitution'), static::PKP_NAMESPACE));
         $entry->appendChild($this->createElement($atom, 'pkp:publisherUrl', $journal->getData('publisherUrl'), static::PKP_NAMESPACE));
         $entry->appendChild($this->createElement($atom, 'pkp:issn', $journal->getData('onlineIssn') ?: $journal->getData('printIssn'), static::PKP_NAMESPACE));
         $entry->appendChild($this->createElement($atom, 'id', 'urn:uuid:' . $this->deposit->getUUID()));
         $entry->appendChild($this->createElement($atom, 'updated', $this->deposit->getDateModified() ? date('Y-m-d H:i:s', strtotime($this->deposit->getDateModified())) : ''));
-
         $url = $dispatcher->url($request, Application::ROUTE_PAGE, $journal->getPath()) . '/' . PlnPlugin::DEPOSIT_FOLDER . '/deposits/' . $this->deposit->getUUID();
         $pkpDetails = $this->createElement($atom, 'pkp:content', $url, static::PKP_NAMESPACE);
         $pkpDetails->setAttribute('size', ceil(filesize($packageFile) / 1000));
-
         $objectVolume = '';
         $objectIssue = '';
         $objectPublicationDate = 0;
-
         $depositObjects = $this->deposit->getDepositObjects();
         switch ($this->deposit->getObjectType()) {
             case 'PublishedArticle': // Legacy (OJS pre-3.2)
@@ -167,6 +158,7 @@ class DepositPackage
                         $objectPublicationDate = strtotime($publicationDate);
                     }
                 }
+
                 break;
             case PlnPlugin::DEPOSIT_TYPE_ISSUE:
                 foreach ($depositObjects as $depositObject) {
@@ -177,16 +169,14 @@ class DepositPackage
                         $objectPublicationDate = $issue->getDatePublished();
                     }
                 }
+
                 break;
         }
-
         $pkpDetails->setAttribute('volume', $objectVolume);
         $pkpDetails->setAttribute('issue', $objectIssue);
         $pkpDetails->setAttribute('pubdate', date('Y-m-d', strtotime($objectPublicationDate)));
-
         // Add OJS Version
         $pkpDetails->setAttribute('ojsVersion', Application::get()->getCurrentVersion()->getVersionString());
-
         switch ($plugin->getSetting($journal->getId(), 'checksum_type')) {
             case 'SHA-1':
                 $pkpDetails->setAttribute('checksumType', 'SHA-1');
@@ -200,12 +190,10 @@ class DepositPackage
 
         $entry->appendChild($pkpDetails);
         $atom->appendChild($entry);
-
         $locale = $journal->getPrimaryLocale();
         $license = $atom->createElementNS(static::PKP_NAMESPACE, 'license');
         $license->appendChild($this->createElement($atom, 'openAccessPolicy', $journal->getLocalizedData('openAccessPolicy', $locale), static::PKP_NAMESPACE));
         $license->appendChild($this->createElement($atom, 'licenseURL', $journal->getLocalizedData('licenseURL', $locale), static::PKP_NAMESPACE));
-
         $mode = $atom->createElementNS(static::PKP_NAMESPACE, 'publishingMode');
         $mode->nodeValue = match ($journal->getData('publishingMode')) {
             Journal::PUBLISHING_MODE_OPEN => 'Open',
@@ -217,10 +205,8 @@ class DepositPackage
         $license->appendChild($this->createElement($atom, 'copyrightNotice', $journal->getLocalizedData('copyrightNotice', $locale), static::PKP_NAMESPACE));
         $license->appendChild($this->createElement($atom, 'copyrightBasis', $journal->getLocalizedData('copyrightBasis'), static::PKP_NAMESPACE));
         $license->appendChild($this->createElement($atom, 'copyrightHolder', $journal->getLocalizedData('copyrightHolder'), static::PKP_NAMESPACE));
-
         $entry->appendChild($license);
         $atom->save($atomFile);
-
         return $atomFile;
     }
 
@@ -232,7 +218,6 @@ class DepositPackage
     public function generatePackage(): string
     {
         require_once __DIR__ . '/../vendor/autoload.php';
-
         // get DAOs, plugins and settings
         /** @var JournalDAO */
         $journalDao = DAORegistry::getDAO('JournalDAO');
@@ -240,31 +225,27 @@ class DepositPackage
         $exportPlugin = PluginRegistry::loadPlugin('importexport', 'native');
         @ini_set('memory_limit', -1);
         $plugin = PlnPlugin::loadPlugin();
-
         // set up folder and file locations
         $bagDir = "{$this->getDepositDir()}/{$this->deposit->getUUID()}";
         $packageFile = $this->getPackageFilePath();
         $exportFile = tempnam(sys_get_temp_dir(), 'ojs-pln-export-');
         $termsFile = tempnam(sys_get_temp_dir(), 'ojs-pln-terms-');
-
         $bag = Bag::create($bagDir);
-
         $fileList = [];
         $fileManager = new FileManager();
-
         $journal = $journalDao->getById($this->deposit->getJournalId());
         $depositObjects = $this->deposit->getDepositObjects();
         switch ($this->deposit->getObjectType()) {
             case 'PublishedArticle': // Legacy (OJS pre-3.2)
             case PlnPlugin::DEPOSIT_TYPE_SUBMISSION:
                 $submissionIds = [];
-
                 // we need to add all of the relevant submissions to an array to export as a batch
                 foreach ($depositObjects as $depositObject) {
                     $submission = $submissionDao->getById($this->deposit->getObjectId());
                     if ($submission->getData('contextId') !== $journal->getId()) {
                         continue;
                     }
+
                     if ($submission->getCurrentPublication()?->getData('status') !== PKPSubmission::STATUS_PUBLISHED) {
                         continue;
                     }
@@ -277,6 +258,7 @@ class DepositPackage
                 if (!$exportXml) {
                     throw new Exception(__('plugins.generic.pln.error.depositor.export.articles.error'));
                 }
+
                 $exportXml = $this->cleanFileList($exportXml, $fileList);
                 $fileManager->writeFile($exportFile, $exportXml);
                 break;
@@ -285,17 +267,16 @@ class DepositPackage
                 $request = Application::get()->getRequest();
                 $depositObject = $depositObjects->first();
                 $issue = Repo::issue()->getByBestId($depositObject->getObjectId(), $journal->getId());
-
                 $exportXml = $exportPlugin->exportIssues(
                     (array) $issue->getId(),
                     $journal,
                     $request->getUser(),
                     ['no-embed' => 1]
                 );
-
                 if (!$exportXml) {
                     throw new Exception(__('plugins.generic.pln.error.depositor.export.issue.error'));
                 }
+
                 $exportXml = $this->cleanFileList($exportXml, $fileList);
                 $fileManager->writeFile($exportFile, $exportXml);
                 break;
@@ -308,10 +289,8 @@ class DepositPackage
         $entry = $termsXml->createElementNS('http://www.w3.org/2005/Atom', 'entry');
         $entry->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:dcterms', 'http://purl.org/dc/terms/');
         $entry->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:pkp', 'terms');
-
         $terms = $plugin->getSetting($this->deposit->getJournalId(), 'terms_of_use');
         $agreement = $plugin->getSetting($this->deposit->getJournalId(), 'terms_of_use_agreement');
-
         $pkpTermsOfUse = $termsXml->createElementNS('terms', 'pkp:terms_of_use');
         foreach ($terms as $termName => $termData) {
             $element = $termsXml->createElementNS('terms', $termName, $termData['term']);
@@ -323,7 +302,6 @@ class DepositPackage
         $entry->appendChild($pkpTermsOfUse);
         $termsXml->appendChild($entry);
         $termsXml->save($termsFile);
-
         // add the exported content to the bag
         $bag->addFile($exportFile, $this->deposit->getObjectType() . $this->deposit->getUUID() . '.xml');
         foreach ($fileList as $sourcePath => $targetPath) {
@@ -350,19 +328,14 @@ class DepositPackage
             'pkp-native.xsd'
         );
         $bag->createFile(file_get_contents('lib/pkp/xml/importexport.xsd'), 'importexport.xsd');
-
         // add the exported content to the bag
         $bag->addFile($termsFile, 'terms' . $this->deposit->getUUID() . '.xml');
-
         // Add OJS Version
         $bag->setExtended(true);
         $bag->addBagInfoTag('PKP-PLN-OJS-Version', Application::get()->getCurrentVersion()->getVersionString());
-
         $bag->update();
-
         // create the bag
         $bag->package($packageFile);
-
         // remove the temporary bag directory and temp files
         $fileManager->rmtree($bagDir);
         $fileManager->deleteByPath($exportFile);
@@ -387,6 +360,7 @@ class DepositPackage
             $fileList[$filePath] = $targetPath;
             $hrefNode->setAttribute('src', $targetPath);
         }
+
         return $doc->saveXML();
     }
 
@@ -397,11 +371,9 @@ class DepositPackage
     {
         $journalId = $this->deposit->getJournalId();
         $plugin = PlnPlugin::loadPlugin();
-
         // post the atom document
         $baseUrl = PlnPlugin::getNetworkUrl();
         $atomPath = $this->getAtomDocumentPath();
-
         // Reset deposit if the package doesn't exist
         if (!file_exists($atomPath)) {
             $this->deposit->setNewStatus();
@@ -411,7 +383,6 @@ class DepositPackage
 
         $journalUuid = $plugin->getSetting($journalId, 'journal_uuid');
         $baseContUrl = "{$baseUrl}/api/sword/2.0/cont-iri/api/sword/2.0/cont-iri/{$journalUuid}/{$this->deposit->getUUID()}";
-
         $result = $plugin->httpGet("{$baseContUrl}/state");
         $status = intdiv((int) $result['status'], 100);
         // Abort if status not 2XX or 4XX
@@ -431,10 +402,10 @@ class DepositPackage
             Repository::instance()->edit($this->deposit);
             return;
         }
+
         // Status 2XX at this URL means the content has been deposited before
         $isNewDeposit = $status !== 2;
         $url = $isNewDeposit ? "{$baseUrl}/api/sword/2.0/col-iri/{$journalUuid}" : "{$baseContUrl}/edit";
-
         $this->task->addExecutionLogEntry(
             __(
                 'plugins.generic.pln.depositor.transferringdeposits.processing.postAtom',
@@ -460,7 +431,6 @@ class DepositPackage
                 ),
                 ScheduledTaskHelper::SCHEDULED_TASK_MESSAGE_TYPE_NOTICE
             );
-
             $this->deposit->setTransferredStatus();
             $this->deposit->setExportDepositError(null);
         } else {
@@ -491,7 +461,6 @@ class DepositPackage
     {
         $fileManager = new ContextFileManager($this->deposit->getJournalId());
         $plnDir = $fileManager->getBasePath() . PlnPlugin::DEPOSIT_FOLDER;
-
         // make sure the pln work directory exists
         if (!$fileManager->fileExists($plnDir, 'dir')) {
             $fileManager->mkdir($plnDir);
@@ -500,7 +469,6 @@ class DepositPackage
         // make a location for our work and clear it out if it already exists
         $this->remove();
         $fileManager->mkdir($this->getDepositDir());
-
         try {
             $packagePath = $this->generatePackage();
             if (!$fileManager->fileExists($packagePath)) {
@@ -531,7 +499,6 @@ class DepositPackage
             ),
             ScheduledTaskHelper::SCHEDULED_TASK_MESSAGE_TYPE_NOTICE
         );
-
         // update the deposit's status
         $this->deposit->setPackagedStatus();
         $this->deposit->setExportDepositError(null);
@@ -546,17 +513,14 @@ class DepositPackage
     {
         $journalId = $this->deposit->getJournalId();
         $plugin = PlnPlugin::loadPlugin();
-
         $network = PlnPlugin::getNetworkUrl();
         $journalUID = $plugin->getSetting($journalId, 'journal_uuid');
         $url = "{$network}/api/sword/2.0/cont-iri/{$journalUID}/{$this->deposit->getUUID()}/state";
-
         // retrieve the content document
         $result = $plugin->httpGet($url);
         if (intdiv((int) $result['status'], 100) !== 2) {
             if ($result['status']) {
                 error_log(__('plugins.generic.pln.error.http.swordstatement', ['error' => $result['status'], 'message' => $result['error']]));
-
                 // Status 4XX means the deposit doesn't exist or isn't related to the given journal, so we restart the deposit
                 if (intdiv($result['status'], 100) === 4) {
                     $this->deposit->setNewStatus();
@@ -573,7 +537,6 @@ class DepositPackage
         $contentDOM = new DOMDocument('1.0', 'utf-8');
         $contentDOM->preserveWhiteSpace = false;
         $contentDOM->loadXML($result['result']);
-
         // get the remote deposit state
         $processingState = $contentDOM->getElementsByTagName('category')->item(0)->getAttribute('term');
         $this->task->addExecutionLogEntry(
@@ -584,7 +547,6 @@ class DepositPackage
             ),
             ScheduledTaskHelper::SCHEDULED_TASK_MESSAGE_TYPE_NOTICE
         );
-
         // Clear previous error messages
         $this->deposit->setExportDepositError(null);
         $this->deposit->setStagingState($processingState ?: null);

@@ -28,7 +28,6 @@ class Deposit extends DataObject
     public function __construct(?string $uuid = null)
     {
         parent::__construct();
-
         //Set up new deposits with a UUID
         $this->setUUID($uuid ?: PKPString::generateUUID());
     }
@@ -121,15 +120,19 @@ class Deposit extends DataObject
         if (!$this->getPackagedStatus() && $this->getExportDepositError()) {
             return __('plugins.generic.pln.status.packagingFailed');
         }
+
         if ($this->getTransferredStatus()) {
             return __('plugins.generic.pln.status.transferred');
         }
+
         if ($this->getPackagedStatus()) {
             return __('plugins.generic.pln.status.packaged');
         }
+
         if ($this->getNewStatus()) {
             return __('plugins.generic.pln.status.new');
         }
+
         return __('plugins.generic.pln.status.unknown');
     }
 
@@ -141,12 +144,15 @@ class Deposit extends DataObject
         if ($this->getSentStatus()) {
             return __('plugins.generic.pln.status.sent');
         }
+
         if ($this->getValidatedStatus()) {
             return __('plugins.generic.pln.status.validated');
         }
+
         if ($this->getReceivedStatus()) {
             return __('plugins.generic.pln.status.received');
         }
+
         return __('plugins.generic.pln.status.unknown');
     }
 
@@ -158,9 +164,11 @@ class Deposit extends DataObject
         if ($this->getLockssAgreementStatus()) {
             return __('plugins.generic.pln.status.agreement');
         }
+
         if ($this->getLockssReceivedStatus()) {
             return __('plugins.generic.pln.status.received');
         }
+
         return __('plugins.generic.pln.status.unknown');
     }
 

@@ -30,10 +30,8 @@ class StatusGridCellProvider extends GridCellProvider
     public function getTemplateVarsFromRowColumn($row, $column): array
     {
         $deposit = $row->getData(); /** @var Deposit $deposit */
-
         switch ($column->getId()) {
             case 'id':
-                // The action has the label
                 return ['label' => $deposit->getUUID()];
             case 'objectId':
                 $label = [];
@@ -41,9 +39,11 @@ class StatusGridCellProvider extends GridCellProvider
                     $content = $object->getContent();
                     $label[] = "#{$content->getId()}: " . ($content ? ($content instanceof Issue ? $content->getIssueIdentification() : $content->getLocalizedData('title')) : __('plugins.generic.pln.status.unknown'));
                 }
+
                 if (!count($label)) {
                     $label[] = __('plugins.generic.pln.status.unknown');
                 }
+
                 return ['label' => implode(' ', $label)];
             case 'status':
                 return ['label' => $deposit->getDisplayedStatus()];
