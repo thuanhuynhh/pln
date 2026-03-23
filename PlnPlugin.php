@@ -270,7 +270,8 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
             ->addSchedule(new Depositor())
             ->daily()
             ->name(Depositor::class)
-            ->withoutOverlapping();
+            ->withoutOverlapping()
+            ->onOneServer();
     }
 
     /**
