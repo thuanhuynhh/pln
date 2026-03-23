@@ -147,11 +147,11 @@ class PLNGatewayPlugin extends GatewayPlugin
         $templateMgr->assign([
             'termsAccepted' => $termsAccepted ? 'yes' : 'no',
             'phpVersion' => PHP_VERSION,
-            'hasZipArchive' => $plugin->hasZipArchive() ? 'Yes' : 'No',
+            'hasZipArchive' => $plugin->hasZipArchive() ? 'yes' : 'no',
             'termsDisplay' => new ArrayItemIterator($termsDisplay),
             'ojsVersion' => Application::get()->getCurrentVersion()->getVersionString(),
             'publications' => $publications,
-            'pln_network' => $plugin->getSetting($journal->getId(), 'pln_network')
+            'networkUrl' => PlnPlugin::getNetworkUrl()
         ]);
 
         header('content-type: text/xml; charset=utf-8');
