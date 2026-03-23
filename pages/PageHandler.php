@@ -23,6 +23,7 @@ use APP\template\TemplateManager;
 use PKP\core\PKPString;
 use PKP\file\FileManager;
 use PKP\security\authorization\ContextRequiredPolicy;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class PageHandler extends Handler
 {
@@ -40,7 +41,6 @@ class PageHandler extends Handler
     public function authorize($request, &$args, $roleAssignments): bool
     {
         $this->addPolicy(new ContextRequiredPolicy($request));
-
         return parent::authorize($request, $args, $roleAssignments);
     }
 
@@ -51,14 +51,12 @@ class PageHandler extends Handler
     {
         $journal = $request->getJournal();
         $fileManager = new FileManager();
-        $dispatcher = $request->getDispatcher();
-
-        $depositUuid = $args[0] ?? '';
+        [$depositUuid] = $args + [''];
 
         // sanitize the input
         if (!preg_match('/^[[:xdigit:]]{8}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{12}$/', $depositUuid)) {
             error_log(__('plugins.generic.pln.error.handler.uuid.invalid'));
-            $dispatcher->handle404();
+            throw new NotFoundHttpException();
         }
 
         $deposit = Repository::instance()
@@ -70,7 +68,7 @@ class PageHandler extends Handler
 
         if (!$deposit) {
             error_log(__('plugins.generic.pln.error.handler.uuid.notfound'));
-            $dispatcher->handle404();
+            throw new NotFoundHttpException();
         }
 
         $depositPackage = new DepositPackage($deposit, null);
@@ -78,7 +76,7 @@ class PageHandler extends Handler
 
         if (!$fileManager->fileExists($depositBag)) {
             error_log('plugins.generic.pln.error.handler.file.notfound');
-            $dispatcher->handle404();
+            throw new NotFoundHttpException();
         }
 
         return $fileManager->downloadByPath($depositBag, PKPString::mime_content_type($depositBag), true);
