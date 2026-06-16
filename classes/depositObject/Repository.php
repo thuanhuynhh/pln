@@ -147,7 +147,6 @@ class Repository
         $newDeposit = $this->newDataObject(array_merge($depositObject->_data, $params));
         Hook::call('PreservationNetwork::DepositObject::edit', [$newDeposit, $depositObject, $params]);
         $this->dao->update($newDeposit);
-        $this->get($newDeposit->getId());
     }
 
     /**
