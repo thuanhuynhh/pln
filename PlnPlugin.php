@@ -106,7 +106,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     }
 
     /**
-     * Permit requests to the static pages grid handler
+     * Permit requests to the status grid handler
      */
     public function onLoadComponentHandler(string $hookName, array $params): bool
     {
