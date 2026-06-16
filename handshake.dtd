@@ -9,7 +9,7 @@
  -->
 
 <!-- Top-level collection containers for batch importing -->
-<!ELEMENT handshake (ojsInfo, pluginInfo, journalInfo)>
+<!ELEMENT handshake (ojsInfo, pluginInfo, network, journalInfo)>
 
 <!ELEMENT ojsInfo (release)>
 <!ELEMENT release (#PCDATA)>
