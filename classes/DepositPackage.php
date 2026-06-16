@@ -112,9 +112,9 @@ class DepositPackage
     public function generateAtomDocument(): string
     {
         $plugin = PlnPlugin::loadPlugin();
-        /** @var JournalDAO */
+        /** @var JournalDAO $journalDao */
         $journalDao = DAORegistry::getDAO('JournalDAO');
-        /** @var Journal */
+        /** @var Journal $journal */
         $journal = $journalDao->getById($this->deposit->getJournalId());
         $fileManager = new ContextFileManager($this->deposit->getJournalId());
         // set up folder and file locations
@@ -219,9 +219,9 @@ class DepositPackage
     {
         require_once __DIR__ . '/../vendor/autoload.php';
         // get DAOs, plugins and settings
-        /** @var JournalDAO */
+        /** @var JournalDAO $journalDao */
         $journalDao = DAORegistry::getDAO('JournalDAO');
-        /** @var NativeImportExportPlugin */
+        /** @var NativeImportExportPlugin $exportPlugin */
         $exportPlugin = PluginRegistry::loadPlugin('importexport', 'native');
         @ini_set('memory_limit', -1);
         $plugin = PlnPlugin::loadPlugin();

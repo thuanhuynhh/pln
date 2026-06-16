@@ -72,7 +72,7 @@ class Repository
      */
     public function getSchemaMap(): Schema
     {
-        /** @var Schema */
+        /** @var Schema $schemaMap */
         $schemaMap = app('maps')->withExtensions($this->schemaMap);
         return $schemaMap;
     }
@@ -93,7 +93,7 @@ class Repository
      */
     public function validate($deposit, $props, $allowedLocales, $primaryLocale): array
     {
-        /** @var PKPSchemaService */
+        /** @var PKPSchemaService $schemaService */
         $schemaService = Services::get('schema');
         $validator = ValidatorFactory::make(
             $props,

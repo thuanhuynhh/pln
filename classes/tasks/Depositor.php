@@ -36,7 +36,7 @@ class Depositor extends ScheduledTask
     /**
      * Constructor.
      */
-    public function __construct(private array $args = [])
+    public function __construct(array $args = [])
     {
         parent::__construct($args);
         $this->plugin = PlnPlugin::loadPlugin();
@@ -59,7 +59,7 @@ class Depositor extends ScheduledTask
         // @todo Re-running the plugin migrations shouldn't be needed. But users are having issues, so better to keep it until we can ensure plugin migrations are executed properly
         (new SchemaMigration())->up();
 
-        /** @var JournalDAO */
+        /** @var JournalDAO $journalDao */
         $journalDao = DAORegistry::getDAO('JournalDAO');
         // For all journals
         foreach ($journalDao->getAll(true)->toIterator() as $journal) {
