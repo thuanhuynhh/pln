@@ -154,7 +154,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     {
         $actions = parent::getActions($request, $verb);
         if (!$this->getEnabled()) {
-            $actions;
+            return $actions;
         }
 
         $router = $request->getRouter();
@@ -282,7 +282,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
         /** @var Notification $notification */
         [$notification, &$message] = $args;
 
-        $message = match ($notification->getType()) {
+        $message = match ($notification->type) {
             static::NOTIFICATION_TERMS_UPDATED => __('plugins.generic.pln.notifications.terms_updated'),
             static::NOTIFICATION_ISSN_MISSING => __('plugins.generic.pln.notifications.issn_missing'),
             static::NOTIFICATION_HTTP_ERROR => __('plugins.generic.pln.notifications.http_error'),
@@ -387,7 +387,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
         $termsAgreed = $this->getSetting($journalId, 'terms_of_use_agreement');
 
         foreach (array_keys($terms) as $term) {
-            if ((!$termsAgreed[$term] ?? false)) {
+            if (!($termsAgreed[$term] ?? false)) {
                 return false;
             }
         }
@@ -472,13 +472,10 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
      */
     public function createJournalManagerNotification(int $contextId, int $notificationType): void
     {
-        $userGroupIds = Repo::userGroup()
-            ->getByRoleIds([Role::ROLE_ID_MANAGER], $contextId)
-            ->map(fn (UserGroup $userGroup) => $userGroup->id)
-            ->all();
         $managers = Repo::user()
             ->getCollector()
-            ->filterByRoleIds($userGroupIds)
+            ->filterByRoleIds([Role::ROLE_ID_MANAGER])
+            ->filterByContextIds([$contextId])
             ->getMany();
         $notificationManager = new NotificationManager();
         foreach ($managers as $manager) {

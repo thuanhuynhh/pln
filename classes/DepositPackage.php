@@ -241,7 +241,7 @@ class DepositPackage
                 $submissionIds = [];
                 // we need to add all of the relevant submissions to an array to export as a batch
                 foreach ($depositObjects as $depositObject) {
-                    $submission = $submissionDao->getById($this->deposit->getObjectId());
+                    $submission = Repo::submission()->get($depositObject->getObjectId());
                     if ($submission->getData('contextId') !== $journal->getId()) {
                         continue;
                     }
