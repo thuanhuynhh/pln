@@ -231,25 +231,4 @@ class DAO extends EntityDAO
             ->filterByIssueIds($issueIds)
             ->getMany();
     }
-
-    /**
-     * Deletes orphaned deposit objects
-     */
-    public function pruneOrphaned(): void
-    {
-        DB::table('pln_deposit_objects')
-            ->whereNotIn(
-                'journal_id',
-                fn (Builder $q) => $q
-                    ->from('journals AS j')
-                    ->select('j.journal_id')
-            )
-            ->orWhereNotIn(
-                'deposit_id',
-                fn (Builder $q) => $q
-                    ->from('pln_deposits AS d')
-                    ->select('d.deposit_id')
-            )
-            ->delete();
-    }
 }

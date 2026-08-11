@@ -252,10 +252,13 @@ class Repository
     }
 
     /**
-     * Delete deposit object objects assigned to non-existent journal/deposit IDs.
+     * Delete orphaned deposit objects (missing journal/deposit/content).
      */
     public function pruneOrphaned(): void
     {
-        $this->dao->pruneOrphaned();
+        $this->getCollector()
+            ->filterByOrphaned(true)
+            ->getQueryBuilder()
+            ->delete();
     }
 }

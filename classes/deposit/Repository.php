@@ -228,13 +228,15 @@ class Repository
     }
 
     /**
-     * Delete deposits assigned to non-existent journal IDs.
+     * Delete orphaned deposits (missing journal, no objects, or broken object refs).
      *
      * @return int[] Deposit IDs which failed to be removed
      */
     public function pruneOrphaned(): array
     {
-        $deposits = $this->dao->getOrphaned($this->getCollector());
+        $deposits = $this->getCollector()
+            ->filterByOrphaned(true)
+            ->getMany();
         $failedIds = [];
         foreach ($deposits as $deposit) {
             if (!$this->delete($deposit)) {

@@ -49,8 +49,10 @@ class Collector implements CollectorInterface
     /** @var int[]|null */
     public ?array $contextIds = null;
 
-    /**  */
     public ?string $status = null;
+
+    /** @var bool|null null = no filter, true = only orphans, false = exclude orphans */
+    public ?bool $isOrphaned = false;
 
     public string $orderBy = self::ORDER_BY_ERROR;
     public string $orderDirection = 'ASC';
@@ -138,6 +140,18 @@ class Collector implements CollectorInterface
     }
 
     /**
+     * Include or exclude orphaned deposits
+     *
+     * A deposit is orphaned when its journal is missing, it has no deposit objects,
+     * or any deposit object references a missing submission/issue.
+     */
+    public function filterByOrphaned(?bool $isOrphaned): static
+    {
+        $this->isOrphaned = $isOrphaned;
+        return $this;
+    }
+
+    /**
      * Order the results
      *
      * @param string $sorter One of the static::ORDER_BY_ constants
@@ -193,6 +207,12 @@ class Collector implements CollectorInterface
                     }
             )
             ->when(
+                $this->isOrphaned !== null,
+                fn (Builder $q) => $this->isOrphaned
+                    ? $this->applyOrphanConstraints($q)
+                    : $q->whereNot(fn (Builder $q) => $this->applyOrphanConstraints($q))
+            )
+            ->when(
                 $orderBy,
                 fn (Builder $q) => $q
                     ->orderBy($orderBy, $this->orderDirection)
@@ -203,5 +223,53 @@ class Collector implements CollectorInterface
         Hook::call('PreservationNetwork::Deposit::Collector', [&$q, $this]);
 
         return $q;
+    }
+
+    /**
+     * Constrain the query to orphaned deposits
+     */
+    protected function applyOrphanConstraints(Builder $q): Builder
+    {
+        return $q->where(
+            fn (Builder $q) => $q
+                ->whereNotExists(
+                    fn (Builder $q) => $q
+                        ->from('journals AS j')
+                        ->whereColumn('j.journal_id', 'd.journal_id')
+                )
+                ->orWhereNotExists(
+                    fn (Builder $q) => $q
+                        ->from('pln_deposit_objects AS do')
+                        ->whereColumn('do.deposit_id', 'd.deposit_id')
+                )
+                ->orWhereExists(
+                    fn (Builder $q) => $q
+                        ->from('pln_deposit_objects AS do')
+                        ->whereColumn('do.deposit_id', 'd.deposit_id')
+                        ->where(
+                            fn (Builder $q) => $q
+                                ->where(
+                                    fn (Builder $q) => $q
+                                        ->whereIn('do.object_type', [PlnPlugin::DEPOSIT_TYPE_SUBMISSION, 'PublishedArticle'])
+                                        ->whereNotExists(
+                                            fn (Builder $q) => $q
+                                                ->from('submissions AS s')
+                                                ->whereColumn('s.submission_id', 'do.object_id')
+                                                ->whereColumn('s.context_id', 'do.journal_id')
+                                        )
+                                )
+                                ->orWhere(
+                                    fn (Builder $q) => $q
+                                        ->where('do.object_type', PlnPlugin::DEPOSIT_TYPE_ISSUE)
+                                        ->whereNotExists(
+                                            fn (Builder $q) => $q
+                                                ->from('issues AS i')
+                                                ->whereColumn('i.issue_id', 'do.object_id')
+                                                ->whereColumn('i.journal_id', 'do.journal_id')
+                                        )
+                                )
+                        )
+                )
+        );
     }
 }
