@@ -25,7 +25,7 @@
 				{fbvFormSection title="common.required" list=true}
 					<ul>
 						{foreach from=$prerequisitesMissing item=message}
-							<li><span class='pkp_form_error'>{$message}</span></li>
+							<li><span class='pkp_form_error'>{$message|escape}</span></li>
 						{/foreach}
 					</ul>
 				{/fbvFormSection}
@@ -41,7 +41,7 @@
 							{assign var="checked" value=""}
 						{/if}
 
-						{fbvElement type="checkbox" name="terms_agreed[$term_name]" id="terms_agreed[$term_name]" value="1" checked=$checked label=$term_data.term translate=false}
+						{fbvElement type="checkbox" name="terms_agreed[$term_name]" id="terms_agreed[$term_name]" value="1" checked=$checked label=$term_data.term|escape translate=false}
 					{/foreach}
 				{else}
 					<p>{translate key="plugins.generic.pln.notifications.issn_setting"}</p>
