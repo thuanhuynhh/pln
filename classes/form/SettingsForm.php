@@ -18,6 +18,8 @@ use APP\plugins\generic\pln\PlnPlugin;
 use APP\template\TemplateManager;
 use PKP\db\DAORegistry;
 use PKP\form\Form;
+use PKP\form\validation\FormValidatorCSRF;
+use PKP\form\validation\FormValidatorPost;
 use PKP\plugins\PluginSettingsDAO;
 
 class SettingsForm extends Form
@@ -30,6 +32,8 @@ class SettingsForm extends Form
     public function __construct(private PlnPlugin $plugin, private int $contextId)
     {
         parent::__construct($plugin->getTemplateResource('settings.tpl'));
+        $this->addCheck(new FormValidatorPost($this));
+        $this->addCheck(new FormValidatorCSRF($this));
     }
 
     /**
