@@ -99,7 +99,6 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
         $this->registerSchemas();
         Hook::add('PluginRegistry::loadCategory', $this->onLoadCategory(...));
         Hook::add('LoadHandler', $this->onLoadHandler(...));
-        Hook::add('NotificationManager::getNotificationContents', $this->onGetNotificationContents(...));
         Hook::add('LoadComponentHandler', $this->onLoadComponentHandler(...));
         $this->disableRestrictions();
         return true;
@@ -272,24 +271,6 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
             ->name(Depositor::class)
             ->withoutOverlapping()
             ->onOneServer();
-    }
-
-    /**
-     * Hook registry function to provide notification messages
-     */
-    public function onGetNotificationContents(string $hookName, array $args): bool
-    {
-        /** @var Notification $notification */
-        [$notification, &$message] = $args;
-
-        $message = match ($notification->type) {
-            static::NOTIFICATION_TERMS_UPDATED => __('plugins.generic.pln.notifications.terms_updated'),
-            static::NOTIFICATION_ISSN_MISSING => __('plugins.generic.pln.notifications.issn_missing'),
-            static::NOTIFICATION_HTTP_ERROR => __('plugins.generic.pln.notifications.http_error'),
-            static::NOTIFICATION_ZIP_MISSING => __('plugins.generic.pln.notifications.zip_missing'),
-            default => $message
-        };
-        return Hook::CONTINUE;
     }
 
     /**
@@ -477,7 +458,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     /**
      * Send a notification to the journal managers
      */
-    public function createJournalManagerNotification(int $contextId, int $notificationType): void
+    public function createJournalManagerNotification(int $contextId, int $notificationType, ?array $params = null): void
     {
         $managers = Repo::user()
             ->getCollector()
@@ -485,8 +466,18 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
             ->filterByContextIds([$contextId])
             ->getMany();
         $notificationManager = new NotificationManager();
+        [$type, $message] = match ($notificationType) {
+            static::NOTIFICATION_TERMS_UPDATED => [Notification::NOTIFICATION_TYPE_ERROR, __('plugins.generic.pln.notifications.terms_updated')],
+            static::NOTIFICATION_ISSN_MISSING => [Notification::NOTIFICATION_TYPE_ERROR, __('plugins.generic.pln.notifications.issn_missing')],
+            static::NOTIFICATION_HTTP_ERROR => [Notification::NOTIFICATION_TYPE_ERROR, __('plugins.generic.pln.notifications.http_error')],
+            static::NOTIFICATION_ZIP_MISSING => [Notification::NOTIFICATION_TYPE_ERROR, __('plugins.generic.pln.notifications.zip_missing')]
+        };
         foreach ($managers as $manager) {
-            $notificationManager->createTrivialNotification($manager->getId(), $notificationType);
+            $notificationManager->createTrivialNotification(
+                $manager->getId(),
+                $type,
+                ['contents' => $message]
+            );
         }
     }
 

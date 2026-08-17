@@ -138,7 +138,7 @@ class DepositPackage
         $entry->appendChild($this->createElement($atom, 'pkp:publisherUrl', $journal->getData('publisherUrl'), static::PKP_NAMESPACE));
         $entry->appendChild($this->createElement($atom, 'pkp:issn', $journal->getData('onlineIssn') ?: $journal->getData('printIssn'), static::PKP_NAMESPACE));
         $entry->appendChild($this->createElement($atom, 'id', 'urn:uuid:' . $this->deposit->getUUID()));
-        $entry->appendChild($this->createElement($atom, 'updated', $this->deposit->getDateModified() ? date('Y-m-d H:i:s', strtotime($this->deposit->getDateModified())) : ''));
+        $entry->appendChild($this->createElement($atom, 'updated', $this->deposit->getDateModified() ? date('Y-m-d H:i:s', strtotime($this->deposit->getDateModified())) : Core::getCurrentDate()));
         $url = $dispatcher->url($request, Application::ROUTE_PAGE, $journal->getPath()) . '/' . PlnPlugin::DEPOSIT_FOLDER . '/deposits/' . $this->deposit->getUUID();
         $pkpDetails = $this->createElement($atom, 'pkp:content', $url, static::PKP_NAMESPACE);
         $pkpDetails->setAttribute('size', ceil(filesize($packageFile) / 1000));
