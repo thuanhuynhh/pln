@@ -212,6 +212,8 @@ class Collector implements CollectorInterface
                     ? $this->applyOrphanConstraints($q)
                     : $q->whereNot(fn (Builder $q) => $this->applyOrphanConstraints($q))
             )
+            ->when($this->count !== null, fn (Builder $q) => $q->limit($this->count))
+            ->when($this->offset !== null, fn (Builder $q) => $q->offset($this->offset))
             ->when(
                 $orderBy,
                 fn (Builder $q) => $q

@@ -146,7 +146,9 @@ class Collector implements CollectorInterface
                 fn (Builder $q) => $this->isOrphaned
                     ? $this->applyOrphanConstraints($q)
                     : $q->whereNot(fn (Builder $q) => $this->applyOrphanConstraints($q))
-            );
+            )
+            ->when($this->count !== null, fn (Builder $q) => $q->limit($this->count))
+            ->when($this->offset !== null, fn (Builder $q) => $q->offset($this->offset));
         // Add app-specific query statements
         Hook::call('PreservationNetwork::DepositObject::Collector', [&$q, $this]);
         return $q;
