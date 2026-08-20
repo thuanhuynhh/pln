@@ -382,7 +382,7 @@ class DepositPackage
         }
 
         $journalUuid = $plugin->getSetting($journalId, 'journal_uuid');
-        $baseContUrl = "{$baseUrl}/api/sword/2.0/cont-iri/api/sword/2.0/cont-iri/{$journalUuid}/{$this->deposit->getUUID()}";
+        $baseContUrl = "{$baseUrl}/api/sword/2.0/cont-iri/{$journalUuid}/{$this->deposit->getUUID()}";
         $result = $plugin->httpGet("{$baseContUrl}/state");
         $status = intdiv((int) $result['status'], 100);
         // Abort if status not 2XX or 4XX
