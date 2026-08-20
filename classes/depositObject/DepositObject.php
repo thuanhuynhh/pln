@@ -49,6 +49,11 @@ class DepositObject extends DataObject
 
         $this->setObjectId($content->getId());
         $this->setObjectType($content instanceof Submission ? PlnPlugin::DEPOSIT_TYPE_SUBMISSION : PlnPlugin::DEPOSIT_TYPE_ISSUE);
+        $this->setDateModified(
+            $content instanceof Issue
+                ? $content->getLastModified()
+                : $content->getData('lastModified')
+        );
     }
 
     /**
