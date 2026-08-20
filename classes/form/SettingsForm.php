@@ -61,12 +61,9 @@ class SettingsForm extends Form
     public function readInputData(): void
     {
         $this->readUserVars(['terms_agreed']);
-        $termsAgreed = $this->getData('terms_of_use_agreement');
-        if (!$this->getData('terms_agreed')) {
-            return;
-        }
-
-        foreach (array_keys($this->getData('terms_agreed')) as $termAgreed) {
+        // Save path does not call initData(); load existing agreements from settings.
+        $termsAgreed = $this->plugin->getSetting($this->contextId, 'terms_of_use_agreement') ?: [];
+        foreach (array_keys((array) $this->getData('terms_agreed')) as $termAgreed) {
             $termsAgreed[$termAgreed] = gmdate('c');
         }
 
