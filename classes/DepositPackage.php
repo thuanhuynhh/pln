@@ -153,7 +153,7 @@ class DepositPackage
                 foreach ($depositObjects as $depositObject) {
                     $submission = Repo::submission()->get($depositObject->getObjectId());
                     $publication = $submission->getCurrentPublication();
-                    $publicationDate = $publication ? $publication->getData('publicationDate') : null;
+                    $publicationDate = $publication ? $publication->getData('datePublished') : null;
                     if ($publicationDate && strtotime($publicationDate) > $objectPublicationDate) {
                         $objectPublicationDate = strtotime($publicationDate);
                     }
