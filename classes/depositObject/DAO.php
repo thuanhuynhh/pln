@@ -170,15 +170,9 @@ class DAO extends EntityDAO
             ->getQueryBuilder()
             ->join('pln_deposit_objects AS do', 'do.object_id', '=', 'i.issue_id')
             ->join(
-                'publication_settings AS ps',
-                fn (JoinClause $j) => $j
-                    ->on(DB::raw('CAST(i.issue_id AS CHAR)'), '=', 'ps.setting_value')
-                    ->where('ps.setting_name', '=', 'issueId')
-            )
-            ->join(
                 'publications AS p',
                 fn (JoinClause $j) => $j
-                    ->on('p.publication_id', '=', 'ps.publication_id')
+                    ->on('p.issue_id', '=', 'i.issue_id')
                     ->where('p.status', '=', Submission::STATUS_PUBLISHED)
             )
             ->join('submissions AS s', 's.current_publication_id', '=', 'p.publication_id')
