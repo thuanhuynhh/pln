@@ -107,7 +107,7 @@ class DAO extends EntityDAO
             ->get();
         return LazyCollection::make(function () use ($rows) {
             foreach ($rows as $row) {
-                yield $row->deposit_id => $this->fromRow($row);
+                yield $row->deposit_object_id => $this->fromRow($row);
             }
         });
     }
