@@ -112,6 +112,10 @@ class StatusGridHandler extends GridHandler
      */
     public function resetDeposit(array $args, Request $request): JSONMessage
     {
+        if (!$request->checkCSRF()) {
+            return new JSONMessage(false);
+        }
+
         $depositId = $args['depositId'];
         $journal = $request->getJournal();
 

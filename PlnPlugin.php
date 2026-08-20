@@ -315,6 +315,9 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
         $form = new SettingsForm($this, $context->getId());
 
         if ($request->getUserVar('refresh')) {
+            if (!$request->checkCSRF()) {
+                return new JSONMessage(false);
+            }
             $result = $this->getServiceDocument($context->getId());
             if (intdiv((int) $result['status'], 100) !== 2) {
                 $message = $result['status']
@@ -349,6 +352,10 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
         $form = new StatusForm($this, $context->getId());
         if (!$request->getUserVar('reset')) {
             return new JSONMessage(true, $form->fetch($request));
+        }
+
+        if (!$request->checkCSRF()) {
+            return new JSONMessage(false);
         }
 
         $depositIds = array_keys($request->getUserVar('reset'));
