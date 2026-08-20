@@ -182,9 +182,15 @@ class Repository
                 );
                 foreach ($outdatedSubmissions as $row) {
                     $depositObject = $this->get($row->deposit_object_id, $journalId);
+                    if (!$depositObject) {
+                        continue;
+                    }
                     $depositObject->setDateModified($row->last_modified);
                     $this->edit($depositObject);
                     $deposit = DepositRepository::instance()->get($depositObject->getDepositId());
+                    if (!$deposit) {
+                        continue;
+                    }
                     $deposit->setNewStatus();
                     DepositRepository::instance()->edit($deposit);
                 }
@@ -196,9 +202,15 @@ class Repository
                 );
                 foreach ($outdatedIssues as $row) {
                     $depositObject = $this->get($row->deposit_object_id, $journalId);
+                    if (!$depositObject) {
+                        continue;
+                    }
                     $depositObject->setDateModified(max($row->issue_modified, $row->article_modified));
                     $this->edit($depositObject);
                     $deposit = DepositRepository::instance()->get($depositObject->getDepositId());
+                    if (!$deposit) {
+                        continue;
+                    }
                     $deposit->setNewStatus();
                     DepositRepository::instance()->edit($deposit);
                 }

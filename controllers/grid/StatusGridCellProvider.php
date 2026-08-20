@@ -38,7 +38,9 @@ class StatusGridCellProvider extends GridCellProvider
                 $label = [];
                 foreach ($deposit->getDepositObjects() as $object) {
                     $content = $object->getContent();
-                    $label[] = "#{$content->getId()}: " . ($content ? ($content instanceof Issue ? $content->getIssueIdentification() : $content->getLocalizedData('title')) : __('plugins.generic.pln.status.unknown'));
+                    $label[] = $content
+                        ? "#{$content->getId()}: " . ($content instanceof Issue ? $content->getIssueIdentification() : $content->getLocalizedData('title'))
+                        : __('plugins.generic.pln.status.unknown');
                 }
 
                 if (!count($label)) {

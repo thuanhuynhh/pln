@@ -116,11 +116,10 @@ class StatusGridHandler extends GridHandler
             return new JSONMessage(false);
         }
 
-        $depositId = $args['depositId'];
+        $depositId = (int) ($args['depositId'] ?? null);
         $journal = $request->getJournal();
 
-        if ($depositId) {
-            $deposit = Repository::instance()->get($depositId, $journal->getId());
+        if ($depositId && ($deposit = Repository::instance()->get($depositId, $journal->getId()))) {
             $deposit->setNewStatus();
             Repository::instance()->edit($deposit);
         }

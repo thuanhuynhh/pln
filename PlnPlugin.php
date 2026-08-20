@@ -358,7 +358,7 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
             return new JSONMessage(false);
         }
 
-        $depositIds = array_keys($request->getUserVar('reset'));
+        $depositIds = array_keys((array) $request->getUserVar('reset'));
         $repo = Repository::instance();
         $deposits = $repo->getCollector()
             ->filterByIds($depositIds)
@@ -390,8 +390,8 @@ class PlnPlugin extends GenericPlugin implements HasTaskScheduler
     public function termsAgreed(int $journalId): bool
     {
         //HASH of all text to detect changes, for existing setup hash automatically
-        $terms = $this->getSetting($journalId, 'terms_of_use');
-        $termsAgreed = $this->getSetting($journalId, 'terms_of_use_agreement');
+        $terms = $this->getSetting($journalId, 'terms_of_use') ?: [];
+        $termsAgreed = $this->getSetting($journalId, 'terms_of_use_agreement') ?: [];
 
         foreach (array_keys($terms) as $term) {
             if (!($termsAgreed[$term] ?? false)) {

@@ -122,8 +122,7 @@ class DepositPackage
         $packageFile = $this->getPackageFilePath();
         // make sure our bag is present
         if (!$fileManager->fileExists($packageFile)) {
-            $this->logMessage(__('plugins.generic.pln.error.depositor.missingpackage', ['file' => $packageFile]));
-            return false;
+            throw new Exception(__('plugins.generic.pln.error.depositor.missingpackage', ['file' => $packageFile]));
         }
 
         $atom = new DOMDocument('1.0', 'utf-8');
@@ -152,6 +151,9 @@ class DepositPackage
             case PlnPlugin::DEPOSIT_TYPE_SUBMISSION:
                 foreach ($depositObjects as $depositObject) {
                     $submission = Repo::submission()->get($depositObject->getObjectId());
+                    if (!$submission) {
+                        continue;
+                    }
                     $publication = $submission->getCurrentPublication();
                     $publicationDate = $publication ? $publication->getData('datePublished') : null;
                     if ($publicationDate && strtotime($publicationDate) > $objectPublicationDate) {
@@ -163,10 +165,14 @@ class DepositPackage
             case PlnPlugin::DEPOSIT_TYPE_ISSUE:
                 foreach ($depositObjects as $depositObject) {
                     $issue = Repo::issue()->get($depositObject->getObjectId());
+                    if (!$issue) {
+                        continue;
+                    }
                     $objectVolume = $issue->getVolume();
                     $objectIssue = $issue->getNumber();
-                    if ($issue->getDatePublished() > $objectPublicationDate) {
-                        $objectPublicationDate = $issue->getDatePublished();
+                    $issuePublicationDate = $issue->getDatePublished() ? strtotime($issue->getDatePublished()) : 0;
+                    if ($issuePublicationDate > $objectPublicationDate) {
+                        $objectPublicationDate = $issuePublicationDate;
                     }
                 }
 
@@ -242,7 +248,7 @@ class DepositPackage
                 // we need to add all of the relevant submissions to an array to export as a batch
                 foreach ($depositObjects as $depositObject) {
                     $submission = Repo::submission()->get($depositObject->getObjectId());
-                    if ($submission->getData('contextId') !== $journal->getId()) {
+                    if ($submission?->getData('contextId') !== $journal->getId()) {
                         continue;
                     }
 
@@ -251,6 +257,10 @@ class DepositPackage
                     }
 
                     $submissionIds[] = $submission->getId();
+                }
+
+                if (!$submissionIds) {
+                    throw new Exception(__('plugins.generic.pln.error.depositor.export.articles.error'));
                 }
 
                 // export all of the submissions together
@@ -266,7 +276,13 @@ class DepositPackage
                 // we only ever do one issue at a time, so get that issue
                 $request = Application::get()->getRequest();
                 $depositObject = $depositObjects->first();
+                if (!$depositObject) {
+                    throw new Exception(__('plugins.generic.pln.error.depositor.export.issue.error'));
+                }
                 $issue = Repo::issue()->getByBestId($depositObject->getObjectId(), $journal->getId());
+                if (!$issue) {
+                    throw new Exception(__('plugins.generic.pln.error.depositor.export.issue.error'));
+                }
                 $exportXml = $exportPlugin->exportIssues(
                     (array) $issue->getId(),
                     $journal,
@@ -289,13 +305,13 @@ class DepositPackage
         $entry = $termsXml->createElementNS('http://www.w3.org/2005/Atom', 'entry');
         $entry->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:dcterms', 'http://purl.org/dc/terms/');
         $entry->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:pkp', 'terms');
-        $terms = $plugin->getSetting($this->deposit->getJournalId(), 'terms_of_use');
-        $agreement = $plugin->getSetting($this->deposit->getJournalId(), 'terms_of_use_agreement');
+        $terms = $plugin->getSetting($this->deposit->getJournalId(), 'terms_of_use') ?: [];
+        $agreement = $plugin->getSetting($this->deposit->getJournalId(), 'terms_of_use_agreement') ?: [];
         $pkpTermsOfUse = $termsXml->createElementNS('terms', 'pkp:terms_of_use');
         foreach ($terms as $termName => $termData) {
             $element = $termsXml->createElementNS('terms', $termName, $termData['term']);
             $element->setAttribute('updated', $termData['updated']);
-            $element->setAttribute('agreed', $agreement[$termName]);
+            $element->setAttribute('agreed', $agreement[$termName] ?? '');
             $pkpTermsOfUse->appendChild($element);
         }
 
