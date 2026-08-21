@@ -25,6 +25,7 @@
 			{/iterate}
 		</terms>
 	</pluginInfo>
+	<network>{$networkUrl|escape}</network>
 	<journalInfo>
 		<title>{$currentJournal->getLocalizedName()|escape}</title>
 		<articles count="{$publications|@count|escape}">

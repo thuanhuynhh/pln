@@ -29,6 +29,7 @@ class I35_FixMissingField extends Migration
         if (Schema::hasColumn('pln_deposits', 'export_deposit_error')) {
             return;
         }
+
         Schema::table('pln_deposits', function (Blueprint $table) {
             $table->string('export_deposit_error', 1000)->nullable();
         });

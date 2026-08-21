@@ -105,10 +105,9 @@ class DAO extends EntityDAO
         $rows = $query
             ->getQueryBuilder()
             ->get();
-
         return LazyCollection::make(function () use ($rows) {
             foreach ($rows as $row) {
-                yield $row->deposit_id => $this->fromRow($row);
+                yield $row->deposit_object_id => $this->fromRow($row);
             }
         });
     }
@@ -119,7 +118,6 @@ class DAO extends EntityDAO
     public function fromRow(object $row): DepositObject
     {
         $depositObject = parent::fromRow($row);
-
         return $depositObject;
     }
 
@@ -172,15 +170,9 @@ class DAO extends EntityDAO
             ->getQueryBuilder()
             ->join('pln_deposit_objects AS do', 'do.object_id', '=', 'i.issue_id')
             ->join(
-                'publication_settings AS ps',
-                fn (JoinClause $j) => $j
-                    ->on(DB::raw('CAST(i.issue_id AS CHAR)'), '=', 'ps.setting_value')
-                    ->where('ps.setting_name', '=', 'issueId')
-            )
-            ->join(
                 'publications AS p',
                 fn (JoinClause $j) => $j
-                    ->on('p.publication_id', '=', 'ps.publication_id')
+                    ->on('p.issue_id', '=', 'i.issue_id')
                     ->where('p.status', '=', Submission::STATUS_PUBLISHED)
             )
             ->join('submissions AS s', 's.current_publication_id', '=', 'p.publication_id')
@@ -228,31 +220,9 @@ class DAO extends EntityDAO
             ->leftJoin('pln_deposit_objects AS do', 'do.object_id', '=', 'i.issue_id')
             ->whereNull('do.object_id')
             ->pluck('i.issue_id')
-            ->toArray();
-
+            ->all();
         return $query
             ->filterByIssueIds($issueIds)
             ->getMany();
-    }
-
-    /**
-     * Deletes orphaned deposit objects
-     */
-    public function pruneOrphaned(): void
-    {
-        DB::table('pln_deposit_objects')
-            ->whereNotIn(
-                'journal_id',
-                fn (Builder $q) => $q
-                    ->from('journals AS j')
-                    ->select('j.journal_id')
-            )
-            ->orWhereNotIn(
-                'deposit_id',
-                fn (Builder $q) => $q
-                    ->from('pln_deposits AS d')
-                    ->select('d.deposit_id')
-            )
-            ->delete();
     }
 }

@@ -104,7 +104,7 @@ class StatusGridHandler extends GridHandler
             ->limit($rangeInfo->getCount())
             ->offset(($rangeInfo->getPage() - 1) * $rangeInfo->getCount())
             ->getMany()
-            ->toArray();
+            ->all();
     }
 
     /**
@@ -112,11 +112,14 @@ class StatusGridHandler extends GridHandler
      */
     public function resetDeposit(array $args, Request $request): JSONMessage
     {
-        $depositId = $args['depositId'];
+        if (!$request->checkCSRF()) {
+            return new JSONMessage(false);
+        }
+
+        $depositId = (int) ($args['depositId'] ?? null);
         $journal = $request->getJournal();
 
-        if ($depositId) {
-            $deposit = Repository::instance()->get($depositId, $journal->getId());
+        if ($depositId && ($deposit = Repository::instance()->get($depositId, $journal->getId()))) {
             $deposit->setNewStatus();
             Repository::instance()->edit($deposit);
         }

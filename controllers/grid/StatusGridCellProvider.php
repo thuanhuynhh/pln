@@ -19,6 +19,7 @@ use APP\issue\Issue;
 use APP\plugins\generic\pln\classes\deposit\Deposit;
 use Exception;
 use PKP\controllers\grid\GridCellProvider;
+use PKP\controllers\grid\GridHandler;
 use PKP\linkAction\LinkAction;
 use PKP\linkAction\request\RemoteActionConfirmationModal;
 
@@ -30,20 +31,22 @@ class StatusGridCellProvider extends GridCellProvider
     public function getTemplateVarsFromRowColumn($row, $column): array
     {
         $deposit = $row->getData(); /** @var Deposit $deposit */
-
         switch ($column->getId()) {
             case 'id':
-                // The action has the label
                 return ['label' => $deposit->getUUID()];
             case 'objectId':
                 $label = [];
                 foreach ($deposit->getDepositObjects() as $object) {
                     $content = $object->getContent();
-                    $label[] = "#{$content->getId()}: " . ($content ? ($content instanceof Issue ? $content->getIssueIdentification() : $content->getLocalizedData('title')) : __('plugins.generic.pln.status.unknown'));
+                    $label[] = $content
+                        ? "#{$content->getId()}: " . ($content instanceof Issue ? $content->getIssueIdentification() : $content->getLocalizedData('title'))
+                        : __('plugins.generic.pln.status.unknown');
                 }
+
                 if (!count($label)) {
                     $label[] = __('plugins.generic.pln.status.unknown');
                 }
+
                 return ['label' => implode(' ', $label)];
             case 'status':
                 return ['label' => $deposit->getDisplayedStatus()];
@@ -59,7 +62,7 @@ class StatusGridCellProvider extends GridCellProvider
     /**
      * @copydoc GridColumn::getCellActions()
      */
-    public function getCellActions($request, $row, $column, $position = GRID_ACTION_POSITION_DEFAULT): array
+    public function getCellActions($request, $row, $column, $position = GridHandler::GRID_ACTION_POSITION_DEFAULT): array
     {
         if ($column->getId() !== 'actions') {
             return [];

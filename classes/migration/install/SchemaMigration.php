@@ -15,11 +15,14 @@
 namespace APP\plugins\generic\pln\classes\migration\install;
 
 use APP\plugins\generic\pln\classes\migration\upgrade\I102_ResetCompletedDeposits;
+use APP\plugins\generic\pln\classes\migration\upgrade\I114_BackfillDepositObjectDateModified;
 use APP\plugins\generic\pln\classes\migration\upgrade\I28_FixDepositStatus;
 use APP\plugins\generic\pln\classes\migration\upgrade\I35_FixMissingField;
 use APP\plugins\generic\pln\classes\migration\upgrade\I57_UpdateSettings;
+use Exception;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use PKP\install\DowngradeNotSupportedException;
 
@@ -60,10 +63,22 @@ class SchemaMigration extends Migration
             });
         }
 
+        $cacheKey = __METHOD__;
+        $completed = Cache::get($cacheKey, []);
         /** @var class-string<Migration> $class */
-        foreach ([I35_FixMissingField::class, I28_FixDepositStatus::class, I57_UpdateSettings::class, I102_ResetCompletedDeposits::class] as $class) {
-            $migration = new $class();
-            $migration->up();
+        foreach ([I35_FixMissingField::class, I28_FixDepositStatus::class, I57_UpdateSettings::class, I102_ResetCompletedDeposits::class, I114_BackfillDepositObjectDateModified::class] as $class) {
+            if ($completed[$class] ?? false) {
+                continue;
+            }
+
+            try {
+                $migration = new $class();
+                $migration->up();
+                $completed[$class] = true;
+                Cache::forever($cacheKey, $completed);
+            } catch (Exception $e) {
+                error_log("Failed to run PKP PN plugin migration {$class}\n{$e}");
+            }
         }
     }
 

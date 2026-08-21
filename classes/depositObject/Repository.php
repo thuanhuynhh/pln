@@ -44,17 +44,18 @@ class Repository
         if (!empty($params)) {
             $object->setAllData($params);
         }
+
         return $object;
     }
 
     /** @copydoc DAO::get() */
-    public function get(int $id, int $contextId = null): ?DepositObject
+    public function get(int $id, ?int $contextId = null): ?DepositObject
     {
         return $this->dao->get($id, $contextId);
     }
 
     /** @copydoc DAO::exists() */
-    public function exists(int $id, int $contextId = null): bool
+    public function exists(int $id, ?int $contextId = null): bool
     {
         return $this->dao->exists($id, $contextId);
     }
@@ -72,7 +73,9 @@ class Repository
      */
     public function getSchemaMap(): Schema
     {
-        return app('maps')->withExtensions($this->schemaMap);
+        /** @var Schema $schemaMap */
+        $schemaMap = app('maps')->withExtensions($this->schemaMap);
+        return $schemaMap;
     }
 
     /**
@@ -91,14 +94,12 @@ class Repository
      */
     public function validate(?DepositObject $depositObject, array $props, array $allowedLocales, string $primaryLocale): array
     {
-        /** @var PKPSchemaService */
+        /** @var PKPSchemaService $schemaService */
         $schemaService = Services::get('schema');
-
         $validator = ValidatorFactory::make(
             $props,
             $schemaService->getValidationRules(Schema::SCHEMA_NAME, $allowedLocales)
         );
-
         // Check required fields
         ValidatorFactory::required(
             $validator,
@@ -108,17 +109,14 @@ class Repository
             $allowedLocales,
             $primaryLocale
         );
-
         // Check for input from disallowed locales
         ValidatorFactory::allowedLocales($validator, $schemaService->getMultilingualProps(Schema::SCHEMA_NAME), $allowedLocales);
-
         $errors = [];
         if ($validator->fails()) {
             $errors = $schemaService->formatValidationErrors($validator->errors());
         }
 
         Hook::call('PreservationNetwork::DepositObject::validate', [$errors, $depositObject, $props, $allowedLocales, $primaryLocale]);
-
         return $errors;
     }
 
@@ -132,11 +130,10 @@ class Repository
         if (!$depositObject->getDateCreated()) {
             $depositObject->setDateCreated(Core::getCurrentDate());
         }
+
         $depositObjectId = $this->dao->insert($depositObject);
         $depositObject = $this->get($depositObjectId);
-
         Hook::call('PreservationNetwork::DepositObject::add', [$depositObject]);
-
         return $depositObject->getId();
     }
 
@@ -148,12 +145,8 @@ class Repository
     public function edit(DepositObject $depositObject, array $params = []): void
     {
         $newDeposit = $this->newDataObject(array_merge($depositObject->_data, $params));
-
         Hook::call('PreservationNetwork::DepositObject::edit', [$newDeposit, $depositObject, $params]);
-
         $this->dao->update($newDeposit);
-
-        $this->get($newDeposit->getId());
     }
 
     /**
@@ -164,9 +157,7 @@ class Repository
     public function delete(DepositObject $depositObject): void
     {
         Hook::call('PreservationNetwork::DepositObject::delete::before', [$depositObject]);
-
         $this->dao->delete($depositObject);
-
         Hook::call('PreservationNetwork::DepositObject::delete', [$depositObject]);
     }
 
@@ -191,12 +182,19 @@ class Repository
                 );
                 foreach ($outdatedSubmissions as $row) {
                     $depositObject = $this->get($row->deposit_object_id, $journalId);
+                    if (!$depositObject) {
+                        continue;
+                    }
                     $depositObject->setDateModified($row->last_modified);
                     $this->edit($depositObject);
                     $deposit = DepositRepository::instance()->get($depositObject->getDepositId());
+                    if (!$deposit) {
+                        continue;
+                    }
                     $deposit->setNewStatus();
                     DepositRepository::instance()->edit($deposit);
                 }
+
                 break;
             case PlnPlugin::DEPOSIT_TYPE_ISSUE:
                 $outdatedIssues = $this->dao->getOutdatedIssues(
@@ -204,12 +202,19 @@ class Repository
                 );
                 foreach ($outdatedIssues as $row) {
                     $depositObject = $this->get($row->deposit_object_id, $journalId);
+                    if (!$depositObject) {
+                        continue;
+                    }
                     $depositObject->setDateModified(max($row->issue_modified, $row->article_modified));
                     $this->edit($depositObject);
                     $deposit = DepositRepository::instance()->get($depositObject->getDepositId());
+                    if (!$deposit) {
+                        continue;
+                    }
                     $deposit->setNewStatus();
                     DepositRepository::instance()->edit($deposit);
                 }
+
                 break;
             default:
                 throw new Exception("Invalid object type \"{$objectType}\"");
@@ -233,7 +238,7 @@ class Repository
                             ->getCollector()
                             ->filterByContextIds([$journalId])
                     )
-                    ->toArray();
+                    ->all();
                 break;
             case PlnPlugin::DEPOSIT_TYPE_ISSUE:
                 $objects = $this->dao
@@ -241,12 +246,11 @@ class Repository
                         Repo::issue()
                             ->getCollector()
                             ->filterByContextIds([$journalId])
-                    )->toArray();
+                    )->all();
                 break;
             default:
                 throw new Exception("Invalid object type \"{$objectType}\"");
         }
-
         $depositObjects = [];
         foreach ($objects as $object) {
             $depositObject = $this->newDataObject();
@@ -260,10 +264,13 @@ class Repository
     }
 
     /**
-     * Delete deposit object objects assigned to non-existent journal/deposit IDs.
+     * Delete orphaned deposit objects (missing journal/deposit/content).
      */
     public function pruneOrphaned(): void
     {
-        $this->dao->pruneOrphaned();
+        $this->getCollector()
+            ->filterByOrphaned(true)
+            ->getQueryBuilder()
+            ->delete();
     }
 }

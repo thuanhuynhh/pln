@@ -18,6 +18,8 @@ use APP\plugins\generic\pln\PlnPlugin;
 use APP\template\TemplateManager;
 use PKP\db\DAORegistry;
 use PKP\form\Form;
+use PKP\form\validation\FormValidatorCSRF;
+use PKP\form\validation\FormValidatorPost;
 use PKP\plugins\PluginSettingsDAO;
 
 class SettingsForm extends Form
@@ -30,6 +32,8 @@ class SettingsForm extends Form
     public function __construct(private PlnPlugin $plugin, private int $contextId)
     {
         parent::__construct($plugin->getTemplateResource('settings.tpl'));
+        $this->addCheck(new FormValidatorPost($this));
+        $this->addCheck(new FormValidatorCSRF($this));
     }
 
     /**
@@ -46,6 +50,7 @@ class SettingsForm extends Form
                     : __('plugins.generic.pln.error.network.servicedocument', ['error' => $result['error']]);
             }
         }
+
         $this->setData('terms_of_use', $this->plugin->getSetting($contextId, 'terms_of_use'));
         $this->setData('terms_of_use_agreement', $this->plugin->getSetting($contextId, 'terms_of_use_agreement'));
     }
@@ -56,15 +61,12 @@ class SettingsForm extends Form
     public function readInputData(): void
     {
         $this->readUserVars(['terms_agreed']);
-
-        $termsAgreed = $this->getData('terms_of_use_agreement');
-        if (!$this->getData('terms_agreed')) {
-            return;
-        }
-
-        foreach (array_keys($this->getData('terms_agreed')) as $termAgreed) {
+        // Save path does not call initData(); load existing agreements from settings.
+        $termsAgreed = $this->plugin->getSetting($this->contextId, 'terms_of_use_agreement') ?: [];
+        foreach (array_keys((array) $this->getData('terms_agreed')) as $termAgreed) {
             $termsAgreed[$termAgreed] = gmdate('c');
         }
+
         $this->setData('terms_of_use_agreement', $termsAgreed);
     }
 
@@ -76,7 +78,6 @@ class SettingsForm extends Form
     private function checkPrerequisites(): array
     {
         $messages = [];
-
         if (!$this->plugin->hasZipArchive()) {
             $messages[] = __('plugins.generic.pln.notifications.zip_missing');
         }
@@ -96,7 +97,7 @@ class SettingsForm extends Form
     public function fetch($request, $template = null, $display = false): string
     {
         $context = $request->getContext();
-        $issn = $context->getSetting('onlineIssn') ?: $context->getSetting('printIssn');
+        $issn = $context->getData('onlineIssn') ?: $context->getData('printIssn');
         $templateMgr = TemplateManager::getManager($request);
         $templateMgr->assign([
             'pluginName' => $this->plugin->getName(),
@@ -118,8 +119,7 @@ class SettingsForm extends Form
     {
         parent::execute(...$functionArgs);
         $this->plugin->updateSetting($this->contextId, 'terms_of_use_agreement', $this->getData('terms_of_use_agreement'), 'object');
-
-        /** @var PluginSettingsDAO */
+        /** @var PluginSettingsDAO $pluginSettingsDao */
         $pluginSettingsDao = DAORegistry::getDAO('PluginSettingsDAO');
         $pluginSettingsDao->installSettings($this->contextId, $this->plugin->getName(), $this->plugin->getContextSpecificPluginSettingsFile());
     }

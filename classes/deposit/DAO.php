@@ -16,7 +16,6 @@
 
 namespace APP\plugins\generic\pln\classes\deposit;
 
-use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
 use PKP\core\EntityDAO;
@@ -118,7 +117,6 @@ class DAO extends EntityDAO
     public function fromRow(object $row): Deposit
     {
         $deposit = parent::fromRow($row);
-
         return $deposit;
     }
 
@@ -144,29 +142,5 @@ class DAO extends EntityDAO
     public function delete(Deposit $deposit): void
     {
         parent::_delete($deposit);
-    }
-
-    /**
-     * Get a collection of orphaned deposits
-     *
-     * @return LazyCollection<int,T>
-     */
-    public function getOrphaned(Collector $query): LazyCollection
-    {
-        $rows = $query
-            ->getQueryBuilder()
-            ->whereNotIn(
-                'd.journal_id',
-                fn (Builder $q) => $q
-                    ->from('journals AS j')
-                    ->select('j.journal_id')
-            )
-            ->get();
-
-        return LazyCollection::make(function () use ($rows) {
-            foreach ($rows as $row) {
-                yield $row->deposit_id => $this->fromRow($row);
-            }
-        });
     }
 }

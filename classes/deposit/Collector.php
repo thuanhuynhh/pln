@@ -49,8 +49,10 @@ class Collector implements CollectorInterface
     /** @var int[]|null */
     public ?array $contextIds = null;
 
-    /**  */
     public ?string $status = null;
+
+    /** @var bool|null null = no filter, true = only orphans, false = exclude orphans */
+    public ?bool $isOrphaned = false;
 
     public string $orderBy = self::ORDER_BY_ERROR;
     public string $orderDirection = 'ASC';
@@ -138,6 +140,18 @@ class Collector implements CollectorInterface
     }
 
     /**
+     * Include or exclude orphaned deposits
+     *
+     * A deposit is orphaned when its journal is missing, it has no deposit objects,
+     * or any deposit object references a missing submission/issue.
+     */
+    public function filterByOrphaned(?bool $isOrphaned): static
+    {
+        $this->isOrphaned = $isOrphaned;
+        return $this;
+    }
+
+    /**
      * Order the results
      *
      * @param string $sorter One of the static::ORDER_BY_ constants
@@ -148,9 +162,11 @@ class Collector implements CollectorInterface
         if (!in_array($sorter, [static::ORDER_BY_ERROR])) {
             throw new InvalidArgumentException("Invalid order by: {$sorter}");
         }
+
         if (!in_array($direction, [static::ORDER_DIR_ASC, static::ORDER_DIR_DESC])) {
             throw new InvalidArgumentException("Invalid order direction: {$direction}");
         }
+
         $this->orderBy = $sorter;
         $this->orderDirection = $direction;
         return $this;
@@ -172,24 +188,32 @@ class Collector implements CollectorInterface
             ->when(
                 $this->status !== null,
                 fn (Builder $q) =>
-                match ($this->status) {
-                    static::STATUS_NEW => $q->where('d.status', '=', PlnPlugin::DEPOSIT_STATUS_NEW),
-                    static::STATUS_READY_TO_TRANSFER => $q
-                        ->whereRaw('d.status & ? <> 0', [PlnPlugin::DEPOSIT_STATUS_PACKAGED])
-                        ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_TRANSFERRED]),
-                    static::STATUS_READY_TO_PACKAGE => $q
-                        ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_PACKAGED]),
-                    static::STATUS_READY_FOR_UPDATE => $q->where(
-                        fn (Builder $q) => $q
-                            ->whereNull('d.status')
-                            ->orWhere(
-                                fn (Builder $q) => $q
-                                    ->whereRaw('d.status & ? <> 0', [PlnPlugin::DEPOSIT_STATUS_TRANSFERRED])
-                                    ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_LOCKSS_AGREEMENT])
-                            )
-                    ),
-                }
+                    match ($this->status) {
+                        static::STATUS_NEW => $q->where('d.status', '=', PlnPlugin::DEPOSIT_STATUS_NEW),
+                        static::STATUS_READY_TO_TRANSFER => $q
+                            ->whereRaw('d.status & ? <> 0', [PlnPlugin::DEPOSIT_STATUS_PACKAGED])
+                            ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_TRANSFERRED]),
+                        static::STATUS_READY_TO_PACKAGE => $q
+                            ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_PACKAGED]),
+                        static::STATUS_READY_FOR_UPDATE => $q->where(
+                            fn (Builder $q) => $q
+                                ->whereNull('d.status')
+                                ->orWhere(
+                                    fn (Builder $q) => $q
+                                        ->whereRaw('d.status & ? <> 0', [PlnPlugin::DEPOSIT_STATUS_TRANSFERRED])
+                                        ->whereRaw('d.status & ? = 0', [PlnPlugin::DEPOSIT_STATUS_LOCKSS_AGREEMENT])
+                                )
+                        ),
+                    }
             )
+            ->when(
+                $this->isOrphaned !== null,
+                fn (Builder $q) => $this->isOrphaned
+                    ? $this->applyOrphanConstraints($q)
+                    : $q->whereNot(fn (Builder $q) => $this->applyOrphanConstraints($q))
+            )
+            ->when($this->count !== null, fn (Builder $q) => $q->limit($this->count))
+            ->when($this->offset !== null, fn (Builder $q) => $q->offset($this->offset))
             ->when(
                 $orderBy,
                 fn (Builder $q) => $q
@@ -201,5 +225,53 @@ class Collector implements CollectorInterface
         Hook::call('PreservationNetwork::Deposit::Collector', [&$q, $this]);
 
         return $q;
+    }
+
+    /**
+     * Constrain the query to orphaned deposits
+     */
+    protected function applyOrphanConstraints(Builder $q): Builder
+    {
+        return $q->where(
+            fn (Builder $q) => $q
+                ->whereNotExists(
+                    fn (Builder $q) => $q
+                        ->from('journals AS j')
+                        ->whereColumn('j.journal_id', 'd.journal_id')
+                )
+                ->orWhereNotExists(
+                    fn (Builder $q) => $q
+                        ->from('pln_deposit_objects AS do')
+                        ->whereColumn('do.deposit_id', 'd.deposit_id')
+                )
+                ->orWhereExists(
+                    fn (Builder $q) => $q
+                        ->from('pln_deposit_objects AS do')
+                        ->whereColumn('do.deposit_id', 'd.deposit_id')
+                        ->where(
+                            fn (Builder $q) => $q
+                                ->where(
+                                    fn (Builder $q) => $q
+                                        ->whereIn('do.object_type', [PlnPlugin::DEPOSIT_TYPE_SUBMISSION, 'PublishedArticle'])
+                                        ->whereNotExists(
+                                            fn (Builder $q) => $q
+                                                ->from('submissions AS s')
+                                                ->whereColumn('s.submission_id', 'do.object_id')
+                                                ->whereColumn('s.context_id', 'do.journal_id')
+                                        )
+                                )
+                                ->orWhere(
+                                    fn (Builder $q) => $q
+                                        ->where('do.object_type', PlnPlugin::DEPOSIT_TYPE_ISSUE)
+                                        ->whereNotExists(
+                                            fn (Builder $q) => $q
+                                                ->from('issues AS i')
+                                                ->whereColumn('i.issue_id', 'do.object_id')
+                                                ->whereColumn('i.journal_id', 'do.journal_id')
+                                        )
+                                )
+                        )
+                )
+        );
     }
 }

@@ -39,13 +39,11 @@ class StatusForm extends Form
         $networkStatus = $this->plugin->getSetting($context->getId(), 'pln_accepting');
         $networkStatusMessage = $this->plugin->getSetting($context->getId(), 'pln_accepting_message')
             ?: __($networkStatus ? 'plugins.generic.pln.notifications.pln_accepting' : 'plugins.generic.pln.notifications.pln_not_accepting');
-
         $templateMgr = TemplateManager::getManager($request);
         $templateMgr->assign([
             'networkStatus' => $networkStatus,
             'networkStatusMessage' => $networkStatusMessage
         ]);
-
         return parent::fetch($request, $template, $display);
     }
 }

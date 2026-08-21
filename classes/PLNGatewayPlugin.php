@@ -21,7 +21,6 @@ use APP\submission\Submission;
 use APP\template\TemplateManager;
 use PKP\core\ArrayItemIterator;
 use PKP\plugins\GatewayPlugin;
-use PKP\plugins\PluginRegistry;
 use PKP\site\VersionCheck;
 
 class PLNGatewayPlugin extends GatewayPlugin
@@ -69,22 +68,11 @@ class PLNGatewayPlugin extends GatewayPlugin
     }
 
     /**
-     * Get the plugin
-     */
-    public function getPlugin(): PlnPlugin
-    {
-        /** @var PlnPlugin */
-        $plugin = PluginRegistry::getPlugin('generic', $this->parentPluginName);
-        return $plugin;
-    }
-
-    /**
      * Override the builtin to get the correct plugin path.
      */
     public function getPluginPath(): string
     {
-        $plugin = $this->getPlugin();
-        return $plugin->getPluginPath();
+        return PlnPlugin::loadPlugin()->getPluginPath();
     }
 
     /**
@@ -92,8 +80,7 @@ class PLNGatewayPlugin extends GatewayPlugin
      */
     public function getTemplatePath($inCore = false): string
     {
-        $plugin = $this->getPlugin();
-        return $plugin->getTemplatePath($inCore);
+        return PlnPlugin::loadPlugin()->getTemplatePath($inCore);
     }
 
     /**
@@ -101,7 +88,7 @@ class PLNGatewayPlugin extends GatewayPlugin
      */
     public function getEnabled()
     {
-        return $this->getPlugin()->getEnabled(); // Should always be true anyway if this is loaded
+        return PlnPlugin::loadPlugin()->getEnabled();
     }
 
     /**
@@ -109,14 +96,12 @@ class PLNGatewayPlugin extends GatewayPlugin
      */
     public function fetch($args, $request): bool
     {
-        $plugin = $this->getPlugin();
+        $plugin = PlnPlugin::loadPlugin();
         $templateMgr = TemplateManager::getManager($request);
         $journal = $request->getJournal();
-
         $pluginVersionFile = $this->getPluginPath() . '/version.xml';
         $pluginVersion = VersionCheck::parseVersionXml($pluginVersionFile);
         $templateMgr->assign('pluginVersion', $pluginVersion);
-
         $terms = [];
         $termsAccepted = $plugin->termsAgreed($journal->getId());
         if ($termsAccepted) {
@@ -142,16 +127,15 @@ class PLNGatewayPlugin extends GatewayPlugin
             ->limit(static::PING_ARTICLE_COUNT)
             ->getMany()
             ->map(fn (Submission $submission) => $submission->getCurrentPublication())
-            ->toArray();
-
+            ->all();
         $templateMgr->assign([
             'termsAccepted' => $termsAccepted ? 'yes' : 'no',
             'phpVersion' => PHP_VERSION,
-            'hasZipArchive' => $plugin->hasZipArchive() ? 'Yes' : 'No',
+            'hasZipArchive' => $plugin->hasZipArchive() ? 'yes' : 'no',
             'termsDisplay' => new ArrayItemIterator($termsDisplay),
             'ojsVersion' => Application::get()->getCurrentVersion()->getVersionString(),
             'publications' => $publications,
-            'pln_network' => $plugin->getSetting($journal->getId(), 'pln_network')
+            'networkUrl' => PlnPlugin::getNetworkUrl()
         ]);
 
         header('content-type: text/xml; charset=utf-8');

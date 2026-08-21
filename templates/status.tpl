@@ -18,7 +18,7 @@
 {capture assign="confirmReset"}{translate key="plugins.generic.pln.status.confirmReset"}{/capture}
 <div id="plnStatus">
 	<h3>{translate key="plugins.generic.pln.status.deposits"}</h3>
-	<p>{translate key="plugins.generic.pln.status.network_status" networkStatusMessage=$networkStatusMessage}</p>
+	<p>{translate key="plugins.generic.pln.status.network_status" networkStatusMessage=$networkStatusMessage|escape}</p>
 	{capture assign="depositsGridUrl"}{url component="plugins.generic.pln.controllers.grid.StatusGridHandler" op="fetchGrid" escape=false}{/capture}
 	{load_url_in_div id="depositsGridContainer" url=$depositsGridUrl}
 	<p>
@@ -39,5 +39,4 @@
 		</ul>
 	</p>
 	<p><span class='fa fa-exclamation-triangle'></span> {translate key='plugins.generic.pln.status.warning'}</p>
-
 </div>
